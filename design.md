@@ -164,6 +164,112 @@ Results published in `README.md` as a comparison table.
 
 ---
 
+## Known Pitfalls & Mitigations
+
+### 1. vLLM Does Not Officially Support Apple Silicon
+vLLM is built for CUDA. M4 Pro has Metal/MPS — experimental support is unstable and
+may silently fall back to CPU, destroying throughput benchmarks.
+
+**Mitigation:** Run vLLM on a cheap cloud GPU (Lambda Labs, RunPod) for benchmark
+runs. Use `mlx-lm` or `llama.cpp` locally for development iteration. README must
+document that vLLM is the production deployment target, not the local dev backend.
+
+---
+
+### 2. Memory Pressure: vLLM + ChromaDB on 24GB
+A 7B model in vLLM (~14GB) + ChromaDB HNSW index for 7M 384-dim embeddings (~10GB)
+leaves near-zero headroom on 24GB unified memory.
+
+**Mitigation:**
+- Use `all-MiniLM-L6-v2` (384-dim, not 768-dim) to keep the vector index to ~10GB
+- Tune ChromaDB HNSW parameters (`M=16`, `ef_construction=100`) for memory efficiency
+- Do not run vLLM and ChromaDB ingestion simultaneously — ingest first, then start vLLM
+- If memory pressure spikes during query serving, consider mmap mode for ChromaDB
+
+---
+
+### 3. Ingestion Runtime Far Exceeds Initial Estimate
+Embedding 7M reviews at ~100-200 reviews/sec (CPU) takes 10–20 hours, not 2-3.
+An interrupted run without checkpointing means re-embedding from scratch.
+
+**Mitigation:** Ingest script saves last processed index to a checkpoint file after
+every batch. On restart, reads checkpoint and resumes from that position. ChromaDB
+upsert is idempotent — safe to overlap.
+
+---
+
+### 4. LangChain `MapReduceDocumentsChain` Is Being Deprecated
+The old chain API is losing maintenance in favour of LCEL (LangChain Expression
+Language). Deprecation warnings will clutter LangSmith traces.
+
+**Mitigation:** Build the map-reduce pipeline using LCEL from the start.
+
+---
+
+### 5. Structured Sentiment Output from a Generative LLM
+Getting `{ "positive": 0.72, "neutral": 0.18, "negative": 0.10 }` reliably from a
+generative model requires enforced structured output. Without it, the model
+occasionally returns free text or misformatted numbers, breaking the API schema.
+
+**Mitigation:** Use vLLM's guided decoding (outlines / JSON mode) with a Pydantic
+schema enforced at inference time. Never rely on prompt-only instructions for
+structured numeric output.
+
+---
+
+### 6. Map-Reduce Semantic Drift ("Hallucination Loop")
+The reduce step is only as good as the map step. Without strict instructions,
+intermediate summaries lose specific entities and complaints — e.g., "cold steak"
+becomes "mixed feelings about food temperature." Each reduce step compounds the loss.
+
+**Mitigation:** Map prompt must explicitly instruct: *"preserve all specific nouns,
+product names, and verbatim complaints."* Measure semantic drift using RAGAS
+faithfulness between map outputs and source reviews — this is a reportable finding.
+
+---
+
+### 7. Star Rating ≠ Sentiment Ground Truth
+A 3-star Yelp review is often bimodal (strong positives + strong negatives), not
+neutral. Treating star ratings as a direct sentiment proxy will produce misleading
+evaluation numbers.
+
+**Mitigation:** Do not average stars as a sentiment score. Instead, treat
+star-vs-LLM-sentiment divergence as a **benchmark finding**: identify businesses
+where the two conflict and explain why (bimodal reviews, single-issue complaints,
+etc.). This makes the evaluation section more interesting than a simple accuracy number.
+
+---
+
+### 8. p99 < 5s Latency Target Is Unrealistic on Local Hardware
+With 100-200 reviews per query and 10+ LLM calls in the map-reduce chain, p99 < 5s
+is achievable on a cloud GPU but not on an M4 Pro.
+
+**Mitigation:** Report two numbers — local (M4 Pro, expected p99 ~15s) and cloud
+(A10G/A100, expected p99 ~3-4s). This turns a limitation into a benchmark result.
+Adjust the official target: **p99 < 5s on cloud GPU; p99 < 20s on M4 Pro.**
+
+---
+
+### 9. RAGAS Context Recall Requires Reference Answers
+RAGAS context recall needs a ground-truth answer to compare against. Yelp does not
+ship human summaries.
+
+**Mitigation:** Limit RAGAS evaluation to metrics that do not require ground-truth
+answers: context precision, faithfulness, and answer relevancy. Skip context recall,
+or generate reference summaries for a small held-out set (100 businesses) manually.
+
+---
+
+### 10. Yelp Dataset Access Requires Manual Registration
+The Yelp Open Dataset is not pip-installable. It requires manual registration, terms
+acceptance, and a manual download from Yelp's website.
+
+**Mitigation:** Document the exact download steps in README. Provide a small sample
+fixture (100 reviews) in the repo for CI and local smoke tests that do not require
+the full dataset.
+
+---
+
 ## Project Structure
 
 ```
