@@ -150,9 +150,9 @@ v1 returns `sentiment` only (no `summary` field). v2 and v3 return both.
 
 **Models:**
 - Embedding: `all-MiniLM-L6-v2` (384-dim, CPU, ingestion only)
-- Generation: `Llama-3.1-8B-Instruct` via vLLM (128K context window)
-- Dev/local: `mlx-lm` or `llama.cpp` (M4 Pro Metal backend, no CUDA required)
-- Benchmark runs: vLLM on cloud GPU (Lambda Labs / RunPod A10G)
+- Generation: `Llama-3.1-8B-Instruct` via `vllm-metal` (M4 Pro) and vLLM (cloud GPU)
+- Benchmark runs: both M4 Pro (Metal) and cloud GPU (Lambda Labs / RunPod A10G)
+  to separate hardware effects from pipeline quality differences
 
 ---
 
@@ -200,12 +200,16 @@ Results published in `README.md` as a version comparison table.
 
 ## Known Pitfalls & Mitigations
 
-### 1. vLLM Does Not Officially Support Apple Silicon
-vLLM is built for CUDA. M4 Pro has Metal/MPS — experimental support is unstable and
-may silently fall back to CPU, destroying throughput benchmarks.
+### 1. vLLM on Apple Silicon Requires the Metal Port
+The official vLLM repo targets CUDA. Apple Silicon support is provided via
+`vllm-metal` (https://github.com/vllm-project/vllm-metal), a port maintained under
+the vllm-project org. It may lag behind the main repo on features or have
+Metal-specific bugs not present in the CUDA build.
 
-**Mitigation:** Use `mlx-lm` or `llama.cpp` locally for development. Run vLLM on a
-cloud GPU (Lambda Labs, RunPod) for benchmark runs only. README documents this split.
+**Mitigation:** Install from `vllm-metal` rather than the main `vllm` package.
+Pin the version in `requirements.txt`. Run benchmark comparisons on both M4 Pro
+(Metal) and a cloud GPU (Lambda Labs / RunPod A10G) to separate hardware effects
+from pipeline effects. Document the install steps explicitly in README.
 
 ---
 
