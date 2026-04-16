@@ -2,32 +2,43 @@
 
 ## Goal
 
-Build a production-grade REST API that answers queries like *"summarize reviews for
-[business] and give me the sentiment breakdown"* using a hierarchical map-reduce RAG
-pipeline over 7M Yelp Open Dataset reviews.
+Build a production-grade REST API over 7M Yelp Open Dataset reviews that returns
+sentiment analysis and business summarization via a RAG pipeline.
 
 The primary deliverable is not just a working API — it is a **benchmark report**
 covering retrieval quality, LLM output quality, and system performance.
 
+The project is built in three versioned stages, each benchmarked independently so
+the improvement from each stage is measurable.
+
 ---
 
-## Approach
+## Versioned Approach
 
-**Chosen: Hierarchical Map-Reduce RAG**
+### v1 — Simple RAG (sentiment only)
+Retrieve top-K reviews from ChromaDB → single vLLM call → sentiment breakdown.
+No summarization. Goal: get the full stack working end-to-end with clean benchmarks.
 
-Reviews retrieved from ChromaDB → split into batches → **map**: each batch summarized
-+ sentiment scored by vLLM in parallel → **reduce**: single LLM call merges partial
-summaries into a final coherent summary + aggregated sentiment.
+### v2 — Two-Stage Aggregation (summary + sentiment)
+Retrieve top 50 reviews → filter to 20 most signal-rich reviews using star-rating
+metadata (highest and lowest stars carry the most information) → single vLLM call
+with full 20-review context → summary + sentiment.
 
-**Approaches not taken:**
+Uses Llama-3.1-8B-Instruct (128K context window), so 20 reviews (~6,000 tokens)
+fits comfortably in one call. No partial JSON merging, no parallel coordination.
+Removes map-reduce complexity while still producing a summarized output.
 
-- **Simple RAG (Retrieve → Generate):** Single-prompt generation truncates reviews for
-  high-volume businesses, degrading summary and sentiment quality. Kept as a baseline
-  in benchmarks to quantify the improvement from map-reduce.
+### v3 — Hierarchical Map-Reduce (full scale)
+Retrieve top 100–200 reviews → split into batches → parallel vLLM map calls →
+single reduce call merges partial summaries. Built using LCEL (not the deprecated
+`MapReduceDocumentsChain`). Handles businesses with thousands of reviews without
+truncation. Benchmarked against v2 to quantify the quality improvement.
+
+**Approach not taken:**
 
 - **Agentic RAG:** LLM agent decides what to retrieve (aspect-by-aspect). Rejected
   because agent non-determinism makes consistent benchmarking unreliable, and
-  map-reduce already handles scale effectively without the added complexity.
+  the v2/v3 progression already handles scale effectively without the added complexity.
 
 ---
 
@@ -52,13 +63,14 @@ Client
   ▼
 FastAPI (async)
   │
-  ├── ChromaDB  ←─── retrieval (top-K reviews by business_id)
+  ├── ChromaDB  <─── retrieval (top-K reviews by business_id)
   │
-  ├── LangChain MapReduceDocumentsChain
-  │     ├── MAP:    parallel vLLM calls (one per review batch)
-  │     └── REDUCE: single vLLM call (merge partial summaries)
+  ├── LangChain pipeline (LCEL)
+  │     v1: retrieve → single LLM call
+  │     v2: retrieve → metadata filter → single LLM call
+  │     v3: retrieve → batch → parallel map → reduce
   │
-  └── LangSmith  ←─── automatic tracing of every LLM call
+  └── LangSmith  <─── automatic tracing of every LLM call
 ```
 
 ---
@@ -76,8 +88,8 @@ Yelp JSON
        metadata: business_id, stars, date, category
 ```
 
-Estimated runtime: ~2-3 hours on M4 Pro for 7M reviews.
-Safe to interrupt and re-run — upsert is idempotent.
+Estimated runtime: 10–20 hours on M4 Pro for 7M reviews (CPU embedding).
+Ingestion script checkpoints progress after every batch — safe to interrupt and resume.
 
 ### API
 
@@ -85,7 +97,7 @@ Safe to interrupt and re-run — upsert is idempotent.
 
 Request:
 ```json
-{ "business_id": "abc123", "query": "summarize reviews" }
+{ "business_id": "abc123" }
 ```
 
 Response:
@@ -98,13 +110,27 @@ Response:
 }
 ```
 
-### Pipeline
+v1 returns `sentiment` only (no `summary` field). v2 and v3 return both.
 
-1. Retrieve top-K reviews from ChromaDB (K=100–200)
-2. Split into batches of N reviews (N=10–20, fits in vLLM context window)
-3. MAP: parallel vLLM calls — each batch → partial summary + sentiment
-4. REDUCE: single vLLM call — merge partials → final summary + overall sentiment
-5. LangSmith traces every step automatically via LangChain callbacks
+### Pipeline per version
+
+**v1:**
+1. Retrieve top-K reviews from ChromaDB (K=50)
+2. Single vLLM call → sentiment breakdown (JSON mode enforced)
+3. LangSmith traces the call
+
+**v2:**
+1. Retrieve top 50 reviews from ChromaDB
+2. Filter to 20 most signal-rich using star-rating metadata (top 10 highest + top 10 lowest rated)
+3. Single vLLM call with all 20 reviews in context → summary + sentiment (JSON mode enforced)
+4. LangSmith traces the call
+
+**v3:**
+1. Retrieve top 100–200 reviews from ChromaDB
+2. Split into batches of 10–20 reviews
+3. MAP: parallel async vLLM calls — each batch → partial summary + sentiment
+4. REDUCE: single vLLM call — merge partials → final summary + aggregated sentiment
+5. LangSmith traces every step
 
 ---
 
@@ -112,44 +138,51 @@ Response:
 
 | Tool | Role | Justification |
 |------|------|---------------|
-| **LangChain** | `MapReduceDocumentsChain`, prompt templates, retriever abstraction | Built-in map-reduce, avoids boilerplate |
+| **LangChain (LCEL)** | Pipeline orchestration, prompt templates, retriever abstraction | LCEL is the current non-deprecated API |
 | **LangSmith** | Tracing every LLM call, latency per step, token usage | Free observability, 2-line integration |
 | **ChromaDB** | Vector store for review embeddings, metadata filtering | Persistent, local, Python-native |
-| **FastAPI** | Async REST API, Pydantic validation, auto `/docs` | Async needed for parallel map calls |
-| **vLLM** | LLM inference — OpenAI-compatible API, PagedAttention batching | Production-grade throughput |
-| **sentence-transformers** | Embedding model for ingestion (local, CPU) | Separate from generation, clean separation of concerns |
+| **FastAPI** | Async REST API, Pydantic validation, auto `/docs` | Async needed for parallel map calls in v3 |
+| **vLLM** | LLM inference — OpenAI-compatible API, JSON mode, PagedAttention | Production-grade throughput; cloud GPU for benchmarks |
+| **sentence-transformers** | Embedding model for ingestion (local, CPU) | Separate from generation; clean separation of concerns |
 | **RAGAS** | Primary RAG evaluation framework | Purpose-built for retrieval + generation quality |
 | **ROUGE / BERTScore** | Fallback LLM quality metrics | Used when RAGAS LLM-judge calls are too slow |
 | **locust** | Load testing for system performance benchmark | Standard, clean p50/p99 reports |
 
-**Models (local on M4 Pro 24GB):**
-- Embedding: `all-MiniLM-L6-v2`
-- Generation: `Mistral-7B-Instruct` or `Llama-3.1-8B-Instruct` via vLLM
+**Models:**
+- Embedding: `all-MiniLM-L6-v2` (384-dim, CPU, ingestion only)
+- Generation: `Llama-3.1-8B-Instruct` via vLLM (128K context window)
+- Dev/local: `mlx-lm` or `llama.cpp` (M4 Pro Metal backend, no CUDA required)
+- Benchmark runs: vLLM on cloud GPU (Lambda Labs / RunPod A10G)
 
 ---
 
 ## Benchmarks
 
-Three evaluation dimensions:
+Three evaluation dimensions, run at each version (v1, v2, v3) to show progression:
 
 ### 1. Retrieval Quality
-- **Tool:** RAGAS — context precision and context recall
+- **Tool:** RAGAS — context precision
 - **Ground truth:** Yelp star ratings
 - **Method:** Sample 1000 businesses, measure whether retrieved reviews match the
   expected sentiment distribution implied by star ratings
+- Note: context recall skipped — Yelp has no reference summaries
 
 ### 2. LLM Output Quality
-- **Primary:** RAGAS — faithfulness (no hallucination beyond retrieved reviews),
-  answer relevancy (summary answers the query)
-- **Fallback:** ROUGE-L and BERTScore against held-out reference summaries
-- **Baseline:** Compare map-reduce output vs. simple RAG (Approach A) on same samples
+- **Primary:** RAGAS — faithfulness (no hallucination), answer relevancy
+- **Fallback:** ROUGE-L and BERTScore (when RAGAS LLM-judge is too slow)
+- **Baseline comparison:** v1 vs v2 vs v3 on the same 100-business sample
+- Note: star-vs-LLM sentiment divergence reported as a finding, not an error
+  (3-star reviews are often bimodal, not neutral — conflicts are interesting)
 
 ### 3. System Performance
 - **Tool:** locust async load test
 - **Metrics:** p50 / p99 latency, requests/sec, error rate under load
-- **Target:** p99 < 5s for businesses with up to 500 reviews
+- **Targets:**
+  - v1: p99 < 3s (local M4 Pro), p99 < 1s (cloud GPU)
+  - v2: p99 < 8s (local M4 Pro), p99 < 2s (cloud GPU)
+  - v3: p99 < 20s (local M4 Pro), p99 < 5s (cloud GPU)
 
-Results published in `README.md` as a comparison table.
+Results published in `README.md` as a version comparison table.
 
 ---
 
@@ -158,9 +191,10 @@ Results published in `README.md` as a comparison table.
 | Scenario | Behaviour |
 |----------|-----------|
 | ChromaDB returns 0 results | 404 with descriptive message |
-| vLLM timeout on map step | Fail entire request — no silent partial results |
-| Ingestion interrupted | Safe to re-run — ChromaDB upsert is idempotent |
+| vLLM timeout on any LLM call | Fail entire request — no silent partial results |
+| Ingestion interrupted | Safe to re-run — checkpoint file + idempotent upsert |
 | RAGAS LLM-judge fails | Automatically fall back to ROUGE/BERTScore |
+| v3 map step returns malformed JSON | Discard that batch, continue reduce with remaining |
 
 ---
 
@@ -170,9 +204,8 @@ Results published in `README.md` as a comparison table.
 vLLM is built for CUDA. M4 Pro has Metal/MPS — experimental support is unstable and
 may silently fall back to CPU, destroying throughput benchmarks.
 
-**Mitigation:** Run vLLM on a cheap cloud GPU (Lambda Labs, RunPod) for benchmark
-runs. Use `mlx-lm` or `llama.cpp` locally for development iteration. README must
-document that vLLM is the production deployment target, not the local dev backend.
+**Mitigation:** Use `mlx-lm` or `llama.cpp` locally for development. Run vLLM on a
+cloud GPU (Lambda Labs, RunPod) for benchmark runs only. README documents this split.
 
 ---
 
@@ -181,92 +214,71 @@ A 7B model in vLLM (~14GB) + ChromaDB HNSW index for 7M 384-dim embeddings (~10G
 leaves near-zero headroom on 24GB unified memory.
 
 **Mitigation:**
-- Use `all-MiniLM-L6-v2` (384-dim, not 768-dim) to keep the vector index to ~10GB
+- Use `all-MiniLM-L6-v2` (384-dim) to keep the vector index to ~10GB
 - Tune ChromaDB HNSW parameters (`M=16`, `ef_construction=100`) for memory efficiency
-- Do not run vLLM and ChromaDB ingestion simultaneously — ingest first, then start vLLM
-- If memory pressure spikes during query serving, consider mmap mode for ChromaDB
+- Do not run vLLM and ingestion simultaneously — ingest first, then start vLLM
+- Consider mmap mode for ChromaDB if memory pressure spikes during query serving
 
 ---
 
-### 3. Ingestion Runtime Far Exceeds Initial Estimate
-Embedding 7M reviews at ~100-200 reviews/sec (CPU) takes 10–20 hours, not 2-3.
-An interrupted run without checkpointing means re-embedding from scratch.
+### 3. Ingestion Runtime Is 10–20 Hours, Not 2–3
+Embedding 7M reviews at ~100–200 reviews/sec on CPU takes far longer than expected.
 
-**Mitigation:** Ingest script saves last processed index to a checkpoint file after
-every batch. On restart, reads checkpoint and resumes from that position. ChromaDB
-upsert is idempotent — safe to overlap.
+**Mitigation:** Ingest script checkpoints after every batch (last processed index
+saved to disk). Restart resumes from that index. ChromaDB upsert is idempotent.
 
 ---
 
-### 4. LangChain `MapReduceDocumentsChain` Is Being Deprecated
-The old chain API is losing maintenance in favour of LCEL (LangChain Expression
-Language). Deprecation warnings will clutter LangSmith traces.
-
-**Mitigation:** Build the map-reduce pipeline using LCEL from the start.
-
----
-
-### 5. Structured Sentiment Output from a Generative LLM
+### 4. Structured Sentiment Output Requires Enforced JSON Mode
 Getting `{ "positive": 0.72, "neutral": 0.18, "negative": 0.10 }` reliably from a
-generative model requires enforced structured output. Without it, the model
-occasionally returns free text or misformatted numbers, breaking the API schema.
+generative model requires enforced structured output — prompt-only instructions are
+not reliable enough for production use.
 
 **Mitigation:** Use vLLM's guided decoding (outlines / JSON mode) with a Pydantic
-schema enforced at inference time. Never rely on prompt-only instructions for
-structured numeric output.
+schema enforced at inference time across all versions.
 
 ---
 
-### 6. Map-Reduce Semantic Drift ("Hallucination Loop")
+### 5. v2 Filter Step: Star Ratings Are Not Neutral at 3 Stars
+A 3-star review is often bimodal (strong positives + strong negatives). Filtering
+purely by "extreme stars" may miss nuanced but information-rich mid-range reviews.
+
+**Mitigation:** Filter to top 10 highest + top 10 lowest rated reviews. Do not
+include mid-range reviews in the filtered set for v2. Star-vs-LLM divergence is
+reported as a benchmark finding, not an accuracy failure.
+
+---
+
+### 6. v3 Map-Reduce Semantic Drift
 The reduce step is only as good as the map step. Without strict instructions,
-intermediate summaries lose specific entities and complaints — e.g., "cold steak"
-becomes "mixed feelings about food temperature." Each reduce step compounds the loss.
+intermediate summaries lose specific entities — "cold steak" becomes "mixed feelings
+about food temperature." Each reduce step compounds the loss.
 
 **Mitigation:** Map prompt must explicitly instruct: *"preserve all specific nouns,
 product names, and verbatim complaints."* Measure semantic drift using RAGAS
-faithfulness between map outputs and source reviews — this is a reportable finding.
+faithfulness — this is a reportable comparison between v2 and v3.
 
 ---
 
-### 7. Star Rating ≠ Sentiment Ground Truth
-A 3-star Yelp review is often bimodal (strong positives + strong negatives), not
-neutral. Treating star ratings as a direct sentiment proxy will produce misleading
-evaluation numbers.
+### 7. p99 Latency Targets Are Hardware-Dependent
+Local M4 Pro numbers will be significantly worse than cloud GPU numbers.
 
-**Mitigation:** Do not average stars as a sentiment score. Instead, treat
-star-vs-LLM-sentiment divergence as a **benchmark finding**: identify businesses
-where the two conflict and explain why (bimodal reviews, single-issue complaints,
-etc.). This makes the evaluation section more interesting than a simple accuracy number.
+**Mitigation:** Report both explicitly. This turns a hardware limitation into a
+benchmark result showing the value of proper inference infrastructure.
 
 ---
 
-### 8. p99 < 5s Latency Target Is Unrealistic on Local Hardware
-With 100-200 reviews per query and 10+ LLM calls in the map-reduce chain, p99 < 5s
-is achievable on a cloud GPU but not on an M4 Pro.
-
-**Mitigation:** Report two numbers — local (M4 Pro, expected p99 ~15s) and cloud
-(A10G/A100, expected p99 ~3-4s). This turns a limitation into a benchmark result.
-Adjust the official target: **p99 < 5s on cloud GPU; p99 < 20s on M4 Pro.**
+### 8. RAGAS Context Recall Requires Reference Answers Yelp Does Not Provide
+**Mitigation:** Skip context recall. Use context precision, faithfulness, and answer
+relevancy only — all three are reference-free metrics.
 
 ---
 
-### 9. RAGAS Context Recall Requires Reference Answers
-RAGAS context recall needs a ground-truth answer to compare against. Yelp does not
-ship human summaries.
+### 9. Yelp Dataset Access Requires Manual Registration
+The dataset is not pip-installable — requires manual download from Yelp's website.
 
-**Mitigation:** Limit RAGAS evaluation to metrics that do not require ground-truth
-answers: context precision, faithfulness, and answer relevancy. Skip context recall,
-or generate reference summaries for a small held-out set (100 businesses) manually.
-
----
-
-### 10. Yelp Dataset Access Requires Manual Registration
-The Yelp Open Dataset is not pip-installable. It requires manual registration, terms
-acceptance, and a manual download from Yelp's website.
-
-**Mitigation:** Document the exact download steps in README. Provide a small sample
-fixture (100 reviews) in the repo for CI and local smoke tests that do not require
-the full dataset.
+**Mitigation:** Document exact download steps in README. Include a 100-review fixture
+in the repo for CI and local smoke tests that do not require the full dataset.
 
 ---
 
@@ -275,18 +287,22 @@ the full dataset.
 ```
 yelp-rag-summarizer/
 ├── ingestion/
-│   └── ingest.py          # stream → embed → ChromaDB
+│   └── ingest.py              # stream → embed → ChromaDB, with checkpointing
 ├── api/
-│   ├── main.py            # FastAPI app and routes
-│   ├── pipeline.py        # LangChain MapReduce chain
-│   ├── retriever.py       # ChromaDB retrieval logic
-│   └── schemas.py         # Pydantic request/response models
+│   ├── main.py                # FastAPI app and routes
+│   ├── pipeline_v1.py         # simple RAG: retrieve → single LLM call
+│   ├── pipeline_v2.py         # two-stage: retrieve → metadata filter → single LLM call
+│   ├── pipeline_v3.py         # map-reduce: retrieve → batch → parallel map → reduce
+│   ├── retriever.py           # ChromaDB retrieval logic (shared)
+│   └── schemas.py             # Pydantic request/response models (shared)
 ├── benchmarks/
-│   ├── retrieval.py       # RAGAS context precision/recall
-│   ├── llm_quality.py     # RAGAS faithfulness + relevancy; ROUGE/BERTScore fallback
-│   └── load_test.py       # locust load test
-├── config.py              # vLLM endpoint, ChromaDB path, model names
-├── design.md              # this file
+│   ├── retrieval.py           # RAGAS context precision
+│   ├── llm_quality.py         # RAGAS faithfulness + relevancy; ROUGE/BERTScore fallback
+│   └── load_test.py           # locust load test
+├── fixtures/
+│   └── sample_reviews.json    # 100-review subset for CI and smoke tests
+├── config.py                  # vLLM endpoint, ChromaDB path, model names
+├── design.md                  # this file
 ├── requirements.txt
-└── README.md              # benchmark results table
+└── README.md                  # benchmark results comparison table (v1 vs v2 vs v3)
 ```
