@@ -8,45 +8,27 @@ Given a business ID, ReviewDistill retrieves the most signal-rich reviews from C
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    CLIENT(["Client"])
-
-    subgraph ING["Ingestion"]
-        YJ[/"Yelp JSON\n7M reviews"/]
-        EMB["nomic-embed-text-v1.5\n256-dim · MPS"]
-        YJ --> EMB
-    end
-
-    CHROMA[("ChromaDB\n~7GB")]
-
-    subgraph API["API"]
-        FA["FastAPI"]
-        PL["v1 · v2 · v3\npipelines"]
-        FA --> PL
-    end
-
-    VLLM["vllm-metal\nLlama-3.1-8B\nJSON mode"]
-    LS(["LangSmith"])
-
-    EMB -->|upsert| CHROMA
-    CLIENT -->|POST /analyze| FA
-    PL <-->|retrieve top-K| CHROMA
-    PL -->|prompt| VLLM
-    VLLM -->|sentiment JSON| FA
-    FA -->|response| CLIENT
-    VLLM -.->|traces| LS
-
-    style ING fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a
-    style API fill:#dcfce7,stroke:#22c55e,color:#14532d
-    classDef store fill:#f3e8ff,stroke:#a855f7,color:#581c87
-    classDef llm   fill:#ffedd5,stroke:#f97316,color:#7c2d12
-    classDef obs   fill:#fef9c3,stroke:#eab308,color:#713f12
-    classDef client fill:#f1f5f9,stroke:#94a3b8,color:#1e293b
-    class CHROMA store
-    class VLLM llm
-    class LS obs
-    class CLIENT client
+```
+  Yelp JSON (7M reviews)
+       │  stream + embed
+       │  nomic-embed-text-v1.5 · 256-dim · MPS
+       ▼
+  ┌─────────────────────────────────┐
+  │  ChromaDB  (~7GB · persistent)  │
+  └────────────────┬────────────────┘
+                   │  top-K reviews + star ratings
+                   ▼
+  Client ───► FastAPI (v1 · v2 · v3) ───► Client
+                   │
+                   │  prompt
+                   ▼
+  ┌─────────────────────────────────┐
+  │  vllm-metal · Llama-3.1-8B     │
+  │  JSON mode · 128K context      │
+  └─────────────────────────────────┘
+                   │  traces
+                   ▼
+              LangSmith
 ```
 
 ### Component Map
