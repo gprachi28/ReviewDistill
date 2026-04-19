@@ -4,7 +4,7 @@
 
 Build a production-grade REST API over 7M Yelp Open Dataset reviews that returns
 sentiment analysis and business summarization via a RAG pipeline.
-
+ 
 The primary deliverable is not just a working API — it is a **benchmark report**
 covering retrieval quality, LLM output quality, and system performance.
 
@@ -83,12 +83,12 @@ FastAPI (async)
 Yelp JSON
   → stream in batches (no full RAM load)
   → chunk reviews per business (max 512 tokens)
-  → embed via sentence-transformers (local, CPU)
+  → embed via mlx-embedding-models (MPS, Apple Silicon GPU)
   → upsert into ChromaDB (persistent, idempotent)
        metadata: business_id, stars, date, category
 ```
 
-Estimated runtime: 10–20 hours on M4 Pro for 7M reviews (CPU embedding).
+Estimated runtime: 2–4 hours on M4 Pro for 7M reviews (MPS embedding via mlx-embedding-models).
 Ingestion script checkpoints progress after every batch — safe to interrupt and resume.
 
 ### API
@@ -142,17 +142,66 @@ v1 returns `sentiment` only (no `summary` field). v2 and v3 return both.
 | **LangSmith** | Tracing every LLM call, latency per step, token usage | Free observability, 2-line integration |
 | **ChromaDB** | Vector store for review embeddings, metadata filtering | Persistent, local, Python-native |
 | **FastAPI** | Async REST API, Pydantic validation, auto `/docs` | Async needed for parallel map calls in v3 |
-| **vLLM** | LLM inference — OpenAI-compatible API, JSON mode, PagedAttention | Production-grade throughput; cloud GPU for benchmarks |
-| **sentence-transformers** | Embedding model for ingestion (local, CPU) | Separate from generation; clean separation of concerns |
+| **vllm-metal** | LLM inference — OpenAI-compatible API, JSON mode, PagedAttention | Apple Silicon port of vLLM ([github.com/vllm-project/vllm-metal](https://github.com/vllm-project/vllm-metal)); installed from source, not pip |
+| **openai SDK** | HTTP client for vLLM's `/v1` endpoint | vLLM exposes an OpenAI-compatible REST API; the `openai` SDK gives structured output support, retries, and type safety at no extra cost — `api_key="not-needed"` since there is no OpenAI involvement |
+| **mlx-embedding-models** | Embedding model for ingestion (MPS, Apple Silicon) | Runs `nomic-embed-text-v1.5` on M4 Pro GPU via MLX; significantly faster than CPU |
 | **RAGAS** | Primary RAG evaluation framework | Purpose-built for retrieval + generation quality |
 | **ROUGE / BERTScore** | Fallback LLM quality metrics | Used when RAGAS LLM-judge calls are too slow |
 | **locust** | Load testing for system performance benchmark | Standard, clean p50/p99 reports |
 
 **Models:**
-- Embedding: `all-MiniLM-L6-v2` (384-dim, CPU, ingestion only)
+- Embedding: `nomic-embed-text-v1.5` (256-dim via Matryoshka truncation, MPS, ingestion only)
 - Generation: `Llama-3.1-8B-Instruct` via `vllm-metal` (M4 Pro) and vLLM (cloud GPU)
 - Benchmark runs: both M4 Pro (Metal) and cloud GPU (Lambda Labs / RunPod A10G)
   to separate hardware effects from pipeline quality differences
+
+**vllm-metal rationale:**
+
+vLLM was chosen over alternatives (Ollama, llama.cpp, Hugging Face `pipeline`) because:
+- It exposes an OpenAI-compatible REST API out of the box, so the client code and cloud GPU code are identical — no code changes when switching from M4 Pro to a Lambda Labs A10G for benchmarks.
+- JSON mode (guided decoding via outlines) enforces the structured sentiment schema at inference time, which prompt-only instructions cannot guarantee reliably.
+- PagedAttention handles concurrent requests cleanly, which matters for the locust load test in Phase 5.
+
+`vllm-metal` specifically is used on Apple Silicon because the official `vllm` package targets CUDA only. It is installed from source ([github.com/vllm-project/vllm-metal](https://github.com/vllm-project/vllm-metal)) and is intentionally absent from `requirements.txt` — see Known Pitfall #1 for install steps.
+
+**OpenAI SDK rationale:**
+
+The `openai` Python SDK is used as the HTTP client pointed at vLLM's local `/v1` endpoint (`base_url="http://localhost:8000/v1"`, `api_key="not-needed"`). Alternatives considered:
+
+- **Raw `httpx`**: works but loses structured output helpers, type hints, and retry logic.
+- **LangChain `ChatOpenAI`**: same wire protocol; would integrate with LangSmith tracing automatically. A viable swap if the pipeline is refactored to use LCEL chains throughout — noted as a future improvement.
+- **LiteLLM**: useful for abstracting over multiple providers but adds an unnecessary dependency given we only target vLLM.
+
+The `openai` SDK was chosen because it is the lightest path to a working client with JSON mode support, and vLLM's compatibility layer makes it transparent.
+
+**Embedding model design rationale:**
+
+Candidates considered:
+
+| Model | Dim | Index size (7M rows) |
+|-------|-----|----------------------|
+| `bge-small-en-v1.5` | 384 | ~10GB |
+| `all-mpnet-base-v2` | 768 | ~20GB |
+| `nomic-embed-text-v1.5` ✓ | 256 (MRL) | ~7GB |
+
+- `bge-small-en-v1.5`: better than MiniLM but fixed 384-dim — no way to trade quality for memory
+- `all-mpnet-base-v2`: strongest quality at 768-dim but ~20GB index leaves no room for vLLM on 24GB
+- `nomic-embed-text-v1.5` at 256-dim: MRL means the 256-dim subspace is explicitly optimised during training, not naively truncated — retrieval quality holds, index drops to ~7GB, and the model runs on MPS via `mlx-embedding-models`
+
+**Generation model design rationale:**
+
+`Llama-3.1-8B-Instruct` was chosen because it fits the 24GB memory budget (~14GB) alongside the ChromaDB index (~7GB), has a 128K context window required for v2 and v3, and has reliable JSON-mode compliance for structured sentiment output.
+
+Alternative generation models considered:
+
+| Model | Params | Context | Notes |
+|-------|--------|---------|-------|
+| `Qwen2.5-7B-Instruct` | 7B | 128K | Strong structured output, benchmarks very close to Llama-3.1-8B on instruction tasks, slightly smaller so saves ~1-2GB |
+| `Phi-3.5-mini-instruct` | 3.8B | 128K | Half the memory (~7GB) — frees significant headroom. Weaker summarization than Llama but may be enough for sentiment |
+| `Gemma-2-9B-Instruct` | 9B | 8K | Strong quality but 8K context is a problem — v2 with 20 reviews (~6K tokens) would be right at the edge, v3 impossible |
+| `Mistral-7B-Instruct-v0.3` | 7B | 32K | Solid, but 32K context is tight for v3 (100-200 retrieved reviews) |
+
+**Backup:** `Qwen2.5-7B-Instruct` is the closest like-for-like swap — same 128K context, slightly smaller memory footprint, and structured output compliance is marginally stronger on benchmarks. If Llama-3.1-8B-Instruct causes issues (Metal instability, JSON-mode failures, memory pressure), swap to Qwen2.5-7B-Instruct first and re-run the same RAGAS benchmarks. Any quality difference becomes a reportable finding.
 
 ---
 
@@ -214,19 +263,21 @@ from pipeline effects. Document the install steps explicitly in README.
 ---
 
 ### 2. Memory Pressure: vLLM + ChromaDB on 24GB
-A 7B model in vLLM (~14GB) + ChromaDB HNSW index for 7M 384-dim embeddings (~10GB)
-leaves near-zero headroom on 24GB unified memory.
+A 7B model in vLLM (~14GB) + ChromaDB HNSW index for 7M 256-dim embeddings (~7GB)
+leaves ~3GB headroom on 24GB unified memory.
 
 **Mitigation:**
-- Use `all-MiniLM-L6-v2` (384-dim) to keep the vector index to ~10GB
+- Use `nomic-embed-text-v1.5` truncated to 256-dim via Matryoshka Representation Learning
+  (MRL) — same model, lower-dimensional projection, ~7GB index vs ~10GB for 384-dim
 - Tune ChromaDB HNSW parameters (`M=16`, `ef_construction=100`) for memory efficiency
 - Do not run vLLM and ingestion simultaneously — ingest first, then start vLLM
 - Consider mmap mode for ChromaDB if memory pressure spikes during query serving
 
 ---
 
-### 3. Ingestion Runtime Is 10–20 Hours, Not 2–3
-Embedding 7M reviews at ~100–200 reviews/sec on CPU takes far longer than expected.
+### 3. Ingestion Runtime: Estimate for MPS vs CPU
+Embedding 7M reviews on CPU at ~100–200 reviews/sec takes 10–20 hours. Using
+`mlx-embedding-models` on the M4 Pro MPS GPU targets ~2–4 hours at ~500–1000 reviews/sec.
 
 **Mitigation:** Ingest script checkpoints after every batch (last processed index
 saved to disk). Restart resumes from that index. ChromaDB upsert is idempotent.

@@ -1,0 +1,22 @@
+[
+  {"review_id": "r001", "business_id": "biz_001", "stars": 5, "date": "2023-01-15", "text": "Absolutely fantastic place. The pasta was cooked perfectly and the service was attentive without being intrusive. Will definitely return."},
+  {"review_id": "r002", "business_id": "biz_001", "stars": 1, "date": "2023-03-10", "text": "Terrible experience. Waited 45 minutes for a cold steak. The waiter was rude and unapologetic. Never coming back."},
+  {"review_id": "r003", "business_id": "biz_001", "stars": 3, "date": "2023-05-20", "text": "Average food, nothing special. The decor was nice but prices are too high for what you get."},
+  {"review_id": "r004", "business_id": "biz_001", "stars": 5, "date": "2023-06-01", "text": "Best brunch in the city. The eggs benedict were perfectly poached and the hollandaise was rich without being heavy."},
+  {"review_id": "r005", "business_id": "biz_001", "stars": 2, "date": "2023-07-14", "text": "Hair in my food. Complained and the manager was dismissive. The replacement dish took another 30 minutes."},
+  {"review_id": "r006", "business_id": "biz_001", "stars": 4, "date": "2023-08-22", "text": "Really solid neighborhood spot. The pizza is thin-crust and charred just right. Service was fast on a busy Saturday night."},
+  {"review_id": "r007", "business_id": "biz_001", "stars": 1, "date": "2023-09-05", "text": "Raw chicken served to my table. This is a health hazard. Reported to the health department."},
+  {"review_id": "r008", "business_id": "biz_001", "stars": 5, "date": "2023-09-18", "text": "Went for my anniversary dinner. Chef came out personally to greet us. The tasting menu was exceptional — every course was memorable."},
+  {"review_id": "r009", "business_id": "biz_001", "stars": 3, "date": "2023-10-02", "text": "Decent enough but nothing I'd go out of my way for. The risotto was a bit bland and the portions are small for the price."},
+  {"review_id": "r010", "business_id": "biz_001", "stars": 4, "date": "2023-10-30", "text": "Great cocktail menu and the small plates are creative. Ambiance is a bit loud but the food quality makes up for it."},
+  {"review_id": "r011", "business_id": "biz_002", "stars": 5, "date": "2023-01-20", "text": "The best ramen I've had outside of Japan. Rich tonkotsu broth, perfectly chewy noodles, and the chashu pork melts in your mouth."},
+  {"review_id": "r012", "business_id": "biz_002", "stars": 1, "date": "2023-02-14", "text": "45-minute wait for a table despite having a reservation. The host was unapologetic and the food arrived cold."},
+  {"review_id": "r013", "business_id": "biz_002", "stars": 4, "date": "2023-03-08", "text": "Consistently excellent sushi. The omakase is pricey but worth every dollar. Chef clearly sources premium fish."},
+  {"review_id": "r014", "business_id": "biz_002", "stars": 2, "date": "2023-04-17", "text": "Used to be great but quality has slipped since they expanded. The miso soup tasted watered down and the salmon was previously frozen."},
+  {"review_id": "r015", "business_id": "biz_002", "stars": 5, "date": "2023-05-09", "text": "Incredible vegetarian options in a city that doesn't always cater to us. The mushroom gyoza and agedashi tofu are standouts."},
+  {"review_id": "r016", "business_id": "biz_002", "stars": 1, "date": "2023-06-23", "text": "Found a piece of plastic in my gyoza. Staff offered a 10% discount as compensation. Unacceptable."},
+  {"review_id": "r017", "business_id": "biz_002", "stars": 5, "date": "2023-07-11", "text": "Went at opening on a weekday and had a perfect, unhurried meal. The black sesame ice cream is not to be missed."},
+  {"review_id": "r018", "business_id": "biz_002", "stars": 3, "date": "2023-08-30", "text": "Good but overhyped. The ramen broth was fine, not revelatory. Service was efficient but felt rushed."},
+  {"review_id": "r019", "business_id": "biz_002", "stars": 4, "date": "2023-09-14", "text": "Excellent karaage chicken and the house sake selection is impressive. Would return for drinks and snacks alone."},
+  {"review_id": "r020", "business_id": "biz_002", "stars": 2, "date": "2023-11-01", "text": "Reservation system is broken — got seated 40 minutes late. Food was good but the chaos at the front of house ruined the experience."}
+]
