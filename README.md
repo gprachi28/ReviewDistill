@@ -8,29 +8,55 @@ Built in three versioned stages — each benchmarked independently for retrieval
 
 ## Architecture
 
-### Ingestion (one-time)
+```mermaid
+flowchart TD
+    subgraph INGEST["Ingestion  (one-time)"]
+        direction LR
+        YJ[/"Yelp JSON\n~7M reviews"/]
+        MLX["mlx-embedding-models\nnomic-embed-text-v1.5\n256-dim · MPS"]
+        YJ -->|"stream batches\n(no full RAM load)"| MLX
+    end
 
-```
-Yelp JSON (~7M reviews)
-  └─ stream in batches (no full RAM load)
-       └─ mlx-embedding-models (MPS, Apple Silicon)
-            model: nomic-embed-text-v1.5 @ 256-dim (Matryoshka)
-               └─ ChromaDB (persistent, idempotent upsert)
-                    metadata stored: business_id, stars, date, category
-```
+    subgraph STORE["Vector Store"]
+        CHROMA[("ChromaDB\npersistent\n~7GB index")]
+    end
 
-### Request Flow
+    subgraph APIBOX["API Layer"]
+        FASTAPI["FastAPI\nasync"]
+        RET["retriever.py\nbusiness_id filter"]
+        V1["pipeline_v1\nretrieve → LLM"]
+        V2["pipeline_v2\nretrieve → filter → LLM"]
+        V3["pipeline_v3\nretrieve → map → reduce"]
+        FASTAPI --> RET
+        FASTAPI --> V1
+        FASTAPI --> V2
+        FASTAPI --> V3
+    end
 
-```
-Client
-  └─ POST /api/{version}/analyze  {"business_id": "..."}
-       └─ FastAPI (async)
-            ├─ ChromaDB  →  top-K reviews + star ratings
-            └─ vllm-metal (Llama-3.1-8B-Instruct)
-                 └─ JSON-mode structured output
-                      └─ AnalyzeResponse  →  Client
+    subgraph LLMBOX["LLM Inference"]
+        VLLM["vllm-metal\nLlama-3.1-8B-Instruct\nJSON mode · 128K ctx"]
+    end
 
-                 (every LLM call traced via LangSmith)
+    subgraph OBS["Observability"]
+        LS[("LangSmith\ntracing")]
+    end
+
+    CLIENT(["Client"])
+
+    MLX -->|"upsert + metadata\n(business_id, stars, date)"| CHROMA
+    CLIENT -->|"POST /api/v1/analyze\n{business_id}"| FASTAPI
+    RET -->|"query"| CHROMA
+    CHROMA -->|"top-K reviews\n+ star ratings"| RET
+    V1 & V2 & V3 -->|"prompt"| VLLM
+    VLLM -->|"JSON sentiment\n/ summary"| FASTAPI
+    FASTAPI -->|"AnalyzeResponse"| CLIENT
+    VLLM -.->|"traces every call"| LS
+
+    style INGEST fill:#1e293b,stroke:#475569,color:#e2e8f0
+    style STORE fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
+    style APIBOX fill:#1a2e1a,stroke:#4ade80,color:#e2e8f0
+    style LLMBOX fill:#2d1b1b,stroke:#f87171,color:#e2e8f0
+    style OBS fill:#2d2517,stroke:#fbbf24,color:#e2e8f0
 ```
 
 ### Component Map
@@ -38,22 +64,22 @@ Client
 ```
 yelp-rag-summarizer/
 ├── ingestion/
-│   └── ingest.py          # stream → embed → ChromaDB, checkpointed
+│   └── ingest.py            # stream → embed → ChromaDB, checkpointed
 ├── api/
-│   ├── main.py            # FastAPI app and routes
-│   ├── retriever.py       # ChromaDB queries (shared by all pipelines)
-│   ├── schemas.py         # Pydantic request/response models
-│   ├── pipeline_v1.py     # retrieve → single LLM call → sentiment
-│   ├── pipeline_v2.py     # retrieve → metadata filter → single LLM call → summary + sentiment
-│   └── pipeline_v3.py     # retrieve → parallel map → reduce → summary + sentiment
+│   ├── main.py              # FastAPI app and routes
+│   ├── retriever.py         # ChromaDB queries (shared by all pipelines)
+│   ├── schemas.py           # Pydantic request/response models
+│   ├── pipeline_v1.py       # retrieve → single LLM call → sentiment
+│   ├── pipeline_v2.py       # retrieve → metadata filter → single LLM call → summary + sentiment
+│   └── pipeline_v3.py       # retrieve → parallel map → reduce → summary + sentiment
 ├── benchmarks/
-│   ├── ragas_eval.py      # context precision, faithfulness, answer relevancy
-│   ├── rouge_eval.py      # ROUGE-L + BERTScore fallback
-│   └── load_test.py       # locust p50/p99 load test
+│   ├── ragas_eval.py        # context precision, faithfulness, answer relevancy
+│   ├── rouge_eval.py        # ROUGE-L + BERTScore fallback
+│   └── load_test.py         # locust p50/p99 load test
 ├── fixtures/
 │   └── sample_reviews.json  # 100-review subset for CI and smoke tests
 ├── tests/
-└── config.py              # all settings via pydantic-settings (.env)
+└── config.py                # all settings via pydantic-settings (.env)
 ```
 
 ---
