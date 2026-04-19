@@ -1,8 +1,8 @@
-# yelp-rag-summarizer
+# ReviewDistill
 
-REST API over 7M Yelp reviews returning sentiment analysis and business summarization via a RAG pipeline.
+Distills 7M Yelp reviews into structured sentiment and business summaries using a RAG pipeline over a local LLM.
 
-Built in three versioned stages — each benchmarked independently for retrieval quality, LLM output quality, and system performance.
+Given a business ID, ReviewDistill retrieves the most signal-rich reviews from ChromaDB, passes them through Llama-3.1-8B-Instruct running on Apple Silicon via vllm-metal, and returns a JSON sentiment breakdown — all with sub-second to low-second latency. Built in three versioned pipeline stages (simple RAG → two-stage aggregation → map-reduce), each benchmarked independently across retrieval quality, LLM output quality, and system performance.
 
 ---
 
