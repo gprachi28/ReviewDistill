@@ -9,54 +9,44 @@ Given a business ID, ReviewDistill retrieves the most signal-rich reviews from C
 ## Architecture
 
 ```mermaid
-flowchart TD
-    subgraph INGEST["Ingestion  (one-time)"]
-        direction LR
-        YJ[/"Yelp JSON\n~7M reviews"/]
-        MLX["mlx-embedding-models\nnomic-embed-text-v1.5\n256-dim · MPS"]
-        YJ -->|"stream batches\n(no full RAM load)"| MLX
-    end
-
-    subgraph STORE["Vector Store"]
-        CHROMA[("ChromaDB\npersistent\n~7GB index")]
-    end
-
-    subgraph APIBOX["API Layer"]
-        FASTAPI["FastAPI\nasync"]
-        RET["retriever.py\nbusiness_id filter"]
-        V1["pipeline_v1\nretrieve → LLM"]
-        V2["pipeline_v2\nretrieve → filter → LLM"]
-        V3["pipeline_v3\nretrieve → map → reduce"]
-        FASTAPI --> RET
-        FASTAPI --> V1
-        FASTAPI --> V2
-        FASTAPI --> V3
-    end
-
-    subgraph LLMBOX["LLM Inference"]
-        VLLM["vllm-metal\nLlama-3.1-8B-Instruct\nJSON mode · 128K ctx"]
-    end
-
-    subgraph OBS["Observability"]
-        LS[("LangSmith\ntracing")]
-    end
-
+flowchart LR
     CLIENT(["Client"])
 
-    MLX -->|"upsert + metadata\n(business_id, stars, date)"| CHROMA
-    CLIENT -->|"POST /api/v1/analyze\n{business_id}"| FASTAPI
-    RET -->|"query"| CHROMA
-    CHROMA -->|"top-K reviews\n+ star ratings"| RET
-    V1 & V2 & V3 -->|"prompt"| VLLM
-    VLLM -->|"JSON sentiment\n/ summary"| FASTAPI
-    FASTAPI -->|"AnalyzeResponse"| CLIENT
-    VLLM -.->|"traces every call"| LS
+    subgraph ING["Ingestion"]
+        YJ[/"Yelp JSON\n7M reviews"/]
+        EMB["nomic-embed-text-v1.5\n256-dim · MPS"]
+        YJ --> EMB
+    end
 
-    style INGEST fill:#1e293b,stroke:#475569,color:#e2e8f0
-    style STORE fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0
-    style APIBOX fill:#1a2e1a,stroke:#4ade80,color:#e2e8f0
-    style LLMBOX fill:#2d1b1b,stroke:#f87171,color:#e2e8f0
-    style OBS fill:#2d2517,stroke:#fbbf24,color:#e2e8f0
+    CHROMA[("ChromaDB\n~7GB")]
+
+    subgraph API["API"]
+        FA["FastAPI"]
+        PL["v1 · v2 · v3\npipelines"]
+        FA --> PL
+    end
+
+    VLLM["vllm-metal\nLlama-3.1-8B\nJSON mode"]
+    LS(["LangSmith"])
+
+    EMB -->|upsert| CHROMA
+    CLIENT -->|POST /analyze| FA
+    PL <-->|retrieve top-K| CHROMA
+    PL -->|prompt| VLLM
+    VLLM -->|sentiment JSON| FA
+    FA -->|response| CLIENT
+    VLLM -.->|traces| LS
+
+    style ING fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a
+    style API fill:#dcfce7,stroke:#22c55e,color:#14532d
+    classDef store fill:#f3e8ff,stroke:#a855f7,color:#581c87
+    classDef llm   fill:#ffedd5,stroke:#f97316,color:#7c2d12
+    classDef obs   fill:#fef9c3,stroke:#eab308,color:#713f12
+    classDef client fill:#f1f5f9,stroke:#94a3b8,color:#1e293b
+    class CHROMA store
+    class VLLM llm
+    class LS obs
+    class CLIENT client
 ```
 
 ### Component Map
