@@ -14,14 +14,22 @@ from config import settings
 
 _client = OpenAI(base_url=settings.vllm_base_url, api_key="not-needed")
 
-_PROMPT = """You are analyzing customer reviews for a business.
-Given the following reviews, provide a sentiment breakdown.
+_PROMPT = """You are a sentiment analyst evaluating customer reviews for a business.
+
+You will be given {n_reviews} customer reviews, each prefixed with its star rating (1-5).
+Analyse them together and return a sentiment breakdown as a JSON object.
+
+Scoring guide:
+- 4-5 stars -> positive
+- 3 stars -> use the review text to decide; do not default to neutral
+- 1-2 stars -> negative
 
 Reviews:
 {reviews}
 
-Respond in JSON: {{"positive": <float>, "neutral": <float>, "negative": <float>}}
-Values must sum to 1.0."""
+Return only valid JSON with exactly these keys:
+{{"positive": <float 0-1>, "neutral": <float 0-1>, "negative": <float 0-1>}}
+The three values must sum to 1.0. No explanation, no markdown, no extra keys."""
 
 
 def analyze_v1(business_id: str) -> AnalyzeResponse:
@@ -30,10 +38,12 @@ def analyze_v1(business_id: str) -> AnalyzeResponse:
     if not reviews:
         raise ValueError(f"No reviews found for business_id={business_id!r}")
 
-    review_text = "\n---\n".join(r["text"] for r in reviews)
+    review_text = "\n---\n".join(
+        f"[{r['stars']} stars] {r['text']}" for r in reviews
+    )
     response = _client.chat.completions.create(
         model=settings.vllm_model,
-        messages=[{"role": "user", "content": _PROMPT.format(reviews=review_text)}],
+        messages=[{"role": "user", "content": _PROMPT.format(n_reviews=len(reviews), reviews=review_text)}],
         response_format={"type": "json_object"},
         temperature=0,
     )
