@@ -97,7 +97,7 @@ yelp-rag-summarizer/
 
 **Models**
 - Embedding: `nomic-embed-text-v1.5` — 256-dim via Matryoshka truncation (~7GB index)
-- Generation: `Llama-3.1-8B-Instruct` — 128K context, ~14GB on 24GB unified memory
+- Generation: `Qwen2.5-7B-Instruct` — 32K context (capped to 16K, see above), ~12GB on 24GB unified memory
 
 ---
 
@@ -135,9 +135,25 @@ Safe to interrupt — resumes from checkpoint.
 
 **2. Start vLLM server:**
 ```bash
-python -m vllm.entrypoints.openai.api_server \
-  --model meta-llama/Llama-3.1-8B-Instruct \
-  --port 8001
+vllm serve Qwen/Qwen2.5-7B-Instruct \
+  --port 8001 \
+  --max-model-len 16384
+```
+
+`--max-model-len 16384` is set because vLLM's default (32768) exceeds the available KV cache on 24GB unified memory when ChromaDB is also resident. 16K covers the worst-case prompt for all three pipeline versions:
+- v1: 50 reviews × ~250 tokens avg + prompt overhead ≈ 13K tokens
+- v2: 20 reviews × ~300 tokens avg + prompt overhead ≈ 6.5K tokens
+- v3: batches of 20 reviews per map call ≈ 6.5K tokens per call
+
+To measure actual token lengths on your data:
+```python
+from transformers import AutoTokenizer
+import json
+
+tok = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
+reviews = json.load(open("fixtures/sample_reviews.json"))
+lengths = [len(tok.encode(r["text"])) for r in reviews]
+print(f"min={min(lengths)} max={max(lengths)} avg={sum(lengths)//len(lengths)}")
 ```
 
 **3. Start API:**
