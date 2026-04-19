@@ -6,3 +6,6 @@ chroma_db/
 ingestion/checkpoint.pkl
 data/
 *.json.gz
+design.md
+doc.understand.md
+plan.md
