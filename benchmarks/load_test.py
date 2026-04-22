@@ -9,16 +9,22 @@ import random
 
 from locust import HttpUser, between, task
 
-BUSINESS_IDS = ["biz_001", "biz_002"]  # extend with real IDs from your dataset
+TEST_QUESTIONS = [
+    "loud spot for a bachelor party that handles large groups",
+    "romantic dinner with outdoor seating under $50",
+    "jazz brunch with live music",
+    "late-night Cajun food after a show on Frenchmen Street",
+    "family-friendly seafood restaurant with parking",
+]
 
 
-class ReviewAnalysisUser(HttpUser):
+class ConversationalQueryUser(HttpUser):
     wait_time = between(1, 3)
 
     @task
-    def analyze_v1(self):
+    def query_v1(self):
         self.client.post(
-            "/api/v1/analyze",
-            json={"business_id": random.choice(BUSINESS_IDS)},
-            name="/api/v1/analyze",
+            "/api/v1/query",
+            json={"question": random.choice(TEST_QUESTIONS)},
+            name="/api/v1/query",
         )
