@@ -3,6 +3,7 @@ yelp_dataset/
 __pycache__/
 *.pyc
 .env
+!.env.example
 chroma_db/
 ingestion/checkpoint.pkl
 data/
