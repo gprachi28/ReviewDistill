@@ -97,7 +97,8 @@ yelp-rag-summarizer/
 
 **Models**
 - Embedding: `nomic-embed-text-v1.5` — 256-dim via Matryoshka truncation (~7GB index)
-- Generation: `Qwen2.5-7B-Instruct` — 32K context (capped to 16K, see above), ~12GB on 24GB unified memory
+- Generation (primary): `Llama-3.1-8B-Instruct` — 128K context (capped to 8192, see above), ~14GB on 24GB unified memory
+- Generation (comparison): `Qwen2.5-7B-Instruct` — 128K context (capped to 8192), ~12GB on 24GB unified memory; benchmarked alongside Llama to measure quality differences
 
 ---
 
@@ -111,10 +112,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**vllm-metal** (Apple Silicon — not on PyPI, install from source):
+**vllm-metal** (Apple Silicon — not on PyPI, install via the official install script):
 ```bash
-git clone https://github.com/vllm-project/vllm-metal
-cd vllm-metal && pip install -e .
+curl -fsSL https://raw.githubusercontent.com/vllm-project/vllm-metal/main/install.sh | bash
+```
+This installs vllm-metal and the vLLM core into `~/.venv-vllm-metal`. Activate it to get the `vllm` CLI:
+```bash
+source ~/.venv-vllm-metal/bin/activate
 ```
 
 **Environment** — copy `.env.example` to `.env` and fill in:
@@ -135,13 +139,14 @@ Safe to interrupt — resumes from checkpoint.
 
 **2. Start vLLM server:**
 ```bash
-vllm serve Qwen/Qwen2.5-7B-Instruct \
+vllm serve meta-llama/Llama-3.1-8B-Instruct \
   --port 8001 \
-  --max-model-len 16384
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.95
 ```
 
-`--max-model-len 16384` is set because vLLM's default (32768) exceeds the available KV cache on 24GB unified memory when ChromaDB is also resident. 16K covers the worst-case prompt for all three pipeline versions:
-- v1: 50 reviews × ~250 tokens avg + prompt overhead ≈ 13K tokens
+`--max-model-len 8192` and `--gpu-memory-utilization 0.95` are required because Llama-3.1-8B-Instruct weights (~14GB) + ChromaDB HNSW index (~7GB) leave only ~0.5 GiB for KV cache at the default utilization rate on 24GB unified memory. At 0.95 utilization the estimated max context is ~9504 tokens; 8192 is used as a safe ceiling with headroom. Prompt budgets for all three pipeline versions stay within this limit:
+- v1: 25 reviews × ~250 tokens avg + prompt overhead ≈ 6.5K tokens
 - v2: 20 reviews × ~300 tokens avg + prompt overhead ≈ 6.5K tokens
 - v3: batches of 20 reviews per map call ≈ 6.5K tokens per call
 
@@ -168,6 +173,12 @@ curl -X POST http://localhost:8000/api/v1/analyze \
   -d '{"business_id": "abc123"}'
 ```
 
+**5. Run load test:**
+```bash
+locust -f benchmarks/load_test.py --host http://localhost:8000 \
+  --users 5 --spawn-rate 1 --run-time 300s --headless
+```
+
 ---
 
 ## API
@@ -190,12 +201,53 @@ curl -X POST http://localhost:8000/api/v1/analyze \
 
 ## Benchmark Results
 
-_Results will be added here as each version is benchmarked._
+_Each metric is reported per model where applicable. Load tests run with locust, 5 concurrent users, 300s window, fixture dataset (20 reviews across 2 businesses)._
+
+### Llama-3.1-8B-Instruct
 
 | Metric | v1 | v2 | v3 |
 |--------|----|----|-----|
 | RAGAS context precision | — | — | — |
 | RAGAS faithfulness | — | — | — |
 | RAGAS answer relevancy | — | — | — |
-| p99 latency (M4 Pro) | — | — | — |
+| p50 latency (M4 Pro) | 9,900ms | — | — |
+| p99 latency (M4 Pro) | 28,000ms | — | — |
+| min latency (M4 Pro, warm) | 7,987ms | — | — |
+| avg latency (M4 Pro) | 10,649ms | — | — |
+| req/s (M4 Pro, 5 users) | 0.39 | — | — |
 | p99 latency (cloud GPU) | — | — | — |
+
+### Qwen2.5-7B-Instruct
+
+| Metric | v1 | v2 | v3 |
+|--------|----|----|-----|
+| RAGAS context precision | — | — | — |
+| RAGAS faithfulness | — | — | — |
+| RAGAS answer relevancy | — | — | — |
+| p50 latency (M4 Pro) | 9,200ms | — | — |
+| p99 latency (M4 Pro) | 42,000ms | — | — |
+| min latency (M4 Pro, warm) | 8,179ms | — | — |
+| avg latency (M4 Pro) | 10,432ms | — | — |
+| req/s (M4 Pro, 5 users) | 0.40 | — | — |
+| p99 latency (cloud GPU) | — | — | — |
+
+_The p99 jump from ~9.5s to 42s is purely queue depth — requests pile up while one is being processed. This is expected with a synchronous LLM call and a single vLLM thread._
+
+---
+
+## Setup Notes — Issues Encountered
+
+### 1. KV cache OOM (Qwen2.5-7B-Instruct)
+Qwen weights (~12GB) leave enough headroom on 24GB unified memory for `--max-model-len 16384` at `--gpu-memory-utilization 0.95` without OOM. No workaround needed.
+
+### 2. KV cache OOM (Llama-3.1-8B-Instruct)
+Llama weights are ~16GB vs ~12GB for Qwen, leaving essentially no KV cache budget even at `gpu-memory-utilization 0.95`. Fixed by adding `VLLM_METAL_MEMORY_FRACTION=0.97` — a vllm-metal-specific env var that controls Metal allocator headroom independently of the standard vLLM flag.
+
+### 3. xgrammar FSM failures with JSON mode
+`response_format={"type": "json_object"}` triggered repeated xgrammar FSM token rejections with Llama's tokenizer on vllm-metal. The `--guided-decoding-backend` flag is not available in this vllm-metal build. Fixed by removing `response_format` entirely and relying on prompt-only JSON instructions.
+
+### 4. Llama wrapping JSON output in markdown fences
+Without `response_format` enforcement, Llama wraps responses in ` ```json ... ``` ` blocks and appends explanation text. Fixed with an `_extract_json` helper in `pipeline_v1.py` that strips markdown fences before `json.loads()`.
+
+### 5. Async FastAPI route blocking event loop
+`async def` route calling a sync blocking `analyze_v1()` (which makes a blocking HTTP call to vLLM) caused the entire event loop to serialize all requests. Under 5 concurrent users, all requests queued behind each other and none completed within the 60s test window. Fixed by changing the route to `def` — FastAPI runs sync routes in a thread pool, allowing concurrent request acceptance.
