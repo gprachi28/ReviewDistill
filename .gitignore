@@ -9,3 +9,5 @@ data/
 design.md
 doc.understand.md
 plan.md
+docs/superpowers/
+ingestion/checkpoint_sql.pkl
