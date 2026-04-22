@@ -1,3 +1,4 @@
+yelp_dataset/
 .venv/
 __pycache__/
 *.pyc
