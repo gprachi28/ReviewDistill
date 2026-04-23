@@ -129,3 +129,22 @@
 **Next candidates:**
 - Add minimum stars filter (≥ 4.0) on retrieved snippets before passing to synthesizer
 - Or filter at business level in SQL (`stars >= 4.0`)
+
+---
+
+## EXP-007 — min_stars=4.0 quality floor in SQL filter
+**Date:** 2026-04-23  
+**Query:** "bachelor party spot, loud, handles large groups"  
+**Change:** `filter_businesses()` now applies `stars >= 4.0` as a base condition, never relaxed
+
+**Status:** Clean results. Low-rated businesses gone.
+
+**Notes:**
+- All 5 businesses ≥ 4.0★ — Bamboula's (3.5), Lucy's (3.5), Rock-n-Saké (3.5) correctly excluded
+- Jacques-Imo's answer is excellent — all claims grounded across 3 snippets
+- Synthesizer still recommends only 1 business despite 5 in context — conservative but at least it's the right one
+- "complimentary champagne for the bride" is from a bachelorette snippet (snippet 3 of Jacques-Imo's) — synthesizer conflated bachelor/bachelorette; minor faithfulness gap
+- **Acme Oyster House: duplicate evidence snippet** — identical review appears twice; ingest/ChromaDB dedup issue
+- Ruby Slipper passed `noise_level=loud` SQL filter but reviews describe a brunch place, not loud — likely a data quality issue in Yelp attributes (`NoiseLevel` field set incorrectly by business)
+
+**Open:** Build query_eval.py with 20 queries to get quantitative accuracy scores across baseline and current prompt versions.
