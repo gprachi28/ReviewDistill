@@ -49,7 +49,12 @@ Convert the user's question into a JSON execution plan with exactly these keys:
 }}
 
 sql_filters rules:
-- Only include fields that the question clearly implies. Omit everything else.
+- Only include fields the user's words DIRECTLY AND EXPLICITLY state. Omit everything else.
+- DO NOT infer fields from occasion words. "bachelor party", "date night", "birthday dinner",
+  "bachelorette" do NOT imply attire, ambience, price_range, or any other field.
+- DO NOT infer attire from any occasion or vibe description.
+- DO NOT infer noise_level unless the user uses words like "quiet", "loud", "lively".
+- When in doubt, omit the field. Fewer filters is better than wrong filters.
 - Scalar fields: set to a single value or a list of values (for OR logic).
 - Range: {{"lte": N}} or {{"gte": N}} for price_range or stars.
 - Boolean fields: true to require, false to exclude, omit to ignore.
@@ -58,6 +63,14 @@ sql_filters rules:
 
 Available fields:
 {_SCHEMA}
+
+Examples:
+
+User: "bachelor party spot, loud, handles large groups"
+Answer: {{"intent": "find_businesses", "sql_filters": {{"noise_level": ["loud", "very_loud"], "good_for_groups": true}}, "semantic_query": "loud atmosphere large group bachelor party"}}
+
+User: "cheap brunch place with outdoor seating"
+Answer: {{"intent": "find_businesses", "sql_filters": {{"good_for_meal": {{"brunch": true}}, "outdoor_seating": true, "price_range": {{"lte": 2}}}}, "semantic_query": "brunch outdoor seating casual"}}
 
 Return ONLY the JSON object. No explanation, no markdown, no code block."""
 
