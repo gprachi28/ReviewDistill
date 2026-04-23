@@ -137,24 +137,24 @@ def test_scalar_filter(db):
 
 
 def test_scalar_list_filter(db):
-    result = filter_businesses({"noise_level": ["loud", "average"]}, db_path=db)
+    result = filter_businesses({"noise_level": ["loud", "average"]}, db_path=db, min_stars=0)
     assert set(result) == {"biz_a", "biz_c", "biz_d", "biz_e", "biz_g"}
 
 
 def test_boolean_true_filter(db):
-    result = filter_businesses({"good_for_groups": True}, db_path=db)
+    result = filter_businesses({"good_for_groups": True}, db_path=db, min_stars=0)
     # biz_a, biz_c, biz_d, biz_e
     assert set(result) == {"biz_a", "biz_c", "biz_d", "biz_e"}
 
 
 def test_boolean_false_filter(db):
-    result = filter_businesses({"good_for_groups": False}, db_path=db)
+    result = filter_businesses({"good_for_groups": False}, db_path=db, min_stars=0)
     # biz_b, biz_f, biz_g (3 results — no fallback)
     assert set(result) == {"biz_b", "biz_f", "biz_g"}
 
 
 def test_range_lte_filter(db):
-    result = filter_businesses({"price_range": {"lte": 2}}, db_path=db)
+    result = filter_businesses({"price_range": {"lte": 2}}, db_path=db, min_stars=0)
     assert set(result) == {"biz_a", "biz_c", "biz_d", "biz_e", "biz_g"}
 
 
@@ -236,7 +236,26 @@ def test_sparse_fallback_returns_none_when_still_too_few(db):
 
 
 def test_no_fallback_when_enough_results(db):
-    # full_bar → biz_a, biz_c, biz_d, biz_e (4 results ≥ 3)
-    result = filter_businesses({"alcohol": "full_bar"}, db_path=db)
+    # full_bar → biz_a, biz_c, biz_d, biz_e (4 results ≥ 3) with no star floor
+    result = filter_businesses({"alcohol": "full_bar"}, db_path=db, min_stars=0)
     assert result is not None
     assert len(result) == 4
+
+
+def test_min_stars_floor_excludes_low_rated(db):
+    # biz_d=3.8, biz_f=3.7, biz_g=3.5 excluded; biz_a=4.5, biz_c=4.0, biz_e=4.3 pass
+    result = filter_businesses({"noise_level": ["loud", "average"]}, db_path=db, min_stars=4.0)
+    assert set(result) == {"biz_a", "biz_c", "biz_e"}
+
+
+def test_min_stars_floor_never_relaxed(db):
+    # Even with sparse fallback, the star floor should hold.
+    # good_for_dancing=True AND good_for_groups=True → only biz_c with min_stars=4.0
+    # fallback drops good_for_dancing → good_for_groups=True + stars>=4.0 → biz_a, biz_c, biz_e
+    result = filter_businesses(
+        {"good_for_dancing": True, "good_for_groups": True},
+        db_path=db,
+        min_stars=4.0,
+    )
+    assert result is not None
+    assert "biz_d" not in result  # 3.8★ — must not appear even after fallback
