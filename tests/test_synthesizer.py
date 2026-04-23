@@ -56,14 +56,16 @@ def test_synthesize_business_names_from_meta():
     assert names == {"Bayou Jazz", "The Quiet Creole"}
 
 
-def test_synthesize_evidence_is_top_snippet():
+def test_synthesize_evidence_contains_all_llm_snippets():
     mock_patch, _ = _mock_llm("Some answer.")
     with mock_patch:
         _, businesses = synthesize("question", SNIPPETS, BIZ_META)
 
     biz_a = next(b for b in businesses if b.business_id == "biz_a")
-    # Top snippet for biz_a is the first one (lowest distance)
-    assert biz_a.evidence == "Loud and fun, great for groups."
+    # biz_a has 2 snippets in SNIPPETS — both should be in evidence
+    assert isinstance(biz_a.evidence, list)
+    assert "Loud and fun, great for groups." in biz_a.evidence
+    assert "Best jazz brunch in the city." in biz_a.evidence
 
 
 def test_synthesize_business_result_fields():

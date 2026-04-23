@@ -47,7 +47,7 @@ def test_business_result_with_price_range():
         name="Bayou Spot",
         stars=4.3,
         price_range=2,
-        evidence="Great atmosphere for groups.",
+        evidence=["Great atmosphere for groups."],
     )
     assert biz.price_range == 2
 
@@ -58,7 +58,7 @@ def test_business_result_without_price_range():
         name="Bayou Spot",
         stars=4.3,
         price_range=None,
-        evidence="Great atmosphere.",
+        evidence=["Great atmosphere."],
     )
     assert biz.price_range is None
 
@@ -100,7 +100,7 @@ def test_query_response_cache_hit_true():
 
 
 def test_query_response_with_businesses():
-    biz = BusinessResult(business_id="x", name="Y", stars=4.0, price_range=1, evidence="nice")
+    biz = BusinessResult(business_id="x", name="Y", stars=4.0, price_range=1, evidence=["nice"])
     resp = _make_response(businesses=[biz])
     assert len(resp.businesses) == 1
     assert resp.businesses[0].name == "Y"
