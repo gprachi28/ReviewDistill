@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from api.schemas import QueryPlan
 from config import settings
 
-_client = OpenAI(base_url=settings.vllm_base_url, api_key="not-required")
+_client = OpenAI(base_url=settings.vllm_base_url, api_key="not-required", timeout=300.0)
 
 # Full attribute schema injected verbatim into the planner prompt.
 _SCHEMA = """
