@@ -45,6 +45,7 @@ def synthesize(
     snippets: list[dict],
     business_meta: dict[str, dict],
     snippets_per_business: int = 3,
+    max_businesses: int = 5,
 ) -> tuple[str, list[BusinessResult]]:
     """
     Generate a conversational answer grounded in review evidence.
@@ -55,17 +56,24 @@ def synthesize(
                                [{business_id, text, stars, distance}, ...].
         business_meta:         business_id → {name, stars, price_range} from SQLite.
         snippets_per_business: How many top snippets to include per business in the prompt.
+        max_businesses:        Cap on unique businesses passed to the LLM. Snippets are
+                               sorted by distance so the first unique businesses seen are
+                               the closest semantic matches.
 
     Returns:
         (answer, businesses) where businesses is a list of BusinessResult with the
         top-matching review snippet as evidence.
     """
     # Group snippets by business, preserving retriever ranking order.
+    # Stop once we have max_businesses unique businesses.
     grouped: dict[str, list[dict]] = defaultdict(list)
     for s in snippets:
         bid = s["business_id"]
-        if bid in business_meta:
-            grouped[bid].append(s)
+        if bid not in business_meta:
+            continue
+        if bid not in grouped and len(grouped) >= max_businesses:
+            continue
+        grouped[bid].append(s)
 
     if not grouped:
         return "I couldn't find relevant reviews for your query.", []
