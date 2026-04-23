@@ -18,7 +18,13 @@ _client = OpenAI(base_url=settings.vllm_base_url, api_key="not-required")
 _SYSTEM_PROMPT = """You are a knowledgeable local guide for New Orleans restaurants.
 Answer the user's question using ONLY the review evidence provided.
 Be conversational, specific, and direct. Name the restaurants you recommend.
-Do not invent details not present in the reviews."""
+Do not invent details not present in the reviews.
+
+Evidence handling rules:
+- If a review explicitly warns against a place for the user's use case, do NOT recommend it. You may note it as a place to avoid and quote the reason.
+- If a review is ambiguous or mixed, reflect that honestly — do not present it as a positive recommendation.
+- A negative review is not evidence to recommend a business. Ignore it for recommendations.
+- Base recommendations only on clearly positive evidence for the specific query."""
 
 
 def _build_evidence_block(business_id: str, meta: dict, top_snippets: list[dict]) -> str:
@@ -78,7 +84,7 @@ def synthesize(
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
-        temperature=0.3,
+        temperature=0.0,
     )
     answer = response.choices[0].message.content.strip()
 
