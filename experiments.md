@@ -148,3 +148,87 @@
 - Ruby Slipper passed `noise_level=loud` SQL filter but reviews describe a brunch place, not loud — likely a data quality issue in Yelp attributes (`NoiseLevel` field set incorrectly by business)
 
 **Open:** Build query_eval.py with 20 queries to get quantitative accuracy scores across baseline and current prompt versions.
+
+---
+
+## EXP-008 — query_eval.py DB coverage baseline
+**Date:** 2026-04-23  
+**Mode:** `python benchmarks/query_eval.py --mode filter` (no LLM required)  
+**What it checks:** 20-query eval set (14 `find_businesses`, 4 `question_about_business`, 2 `compare_businesses`). Filter mode runs each `find_businesses` query's expected filters through `filter_businesses()` to verify the DB returns ≥3 businesses.
+
+**Results: 14/14 PASS (100%)**
+
+| ID    | Businesses returned | Query |
+|-------|--------------------:|-------|
+| FB-01 | 37  | bachelor party spot, loud, handles large groups |
+| FB-02 | 104 | cheap brunch place with outdoor seating |
+| FB-03 | 6   | jazz brunch with live music |
+| FB-04 | 58  | late-night Cajun food after a show on Frenchmen Street |
+| FB-05 | 479 | family-friendly seafood place with parking |
+| FB-06 | 77  | quiet romantic date spot |
+| FB-07 | 312 | outdoor patio restaurant with a full bar |
+| FB-08 | 103 | dog-friendly restaurant with a patio |
+| FB-09 | 31  | upscale dinner spot that takes reservations |
+| FB-10 | 211 | happy hour bar with TVs to watch sports |
+| FB-11 | 26  | BYOB place with casual attire |
+| FB-12 | 34  | bachelorette dinner, upscale vibes, good for large groups |
+| FB-13 | 225 | wheelchair accessible restaurant that caters events |
+| FB-14 | 3   | dressy dinner spot with live music |
+
+QB/CB cases skipped in filter mode — intent-only, no SQL filters.
+
+**Notes:**
+- FB-14 (`attire=dressy + music.live=true`) is the tightest filter at exactly 3 businesses — right at the sparse fallback threshold; watch for regressions if min_stars floor is raised
+- FB-03 (`good_for_meal.brunch + music.live`) returns 6 — healthy headroom despite two JSON sub-key filters
+- Next: run `--mode planner` once vllm is up to get planner accuracy scores
+
+---
+
+## EXP-009 — query_eval.py planner accuracy baseline
+**Date:** 2026-04-23  
+**Mode:** `python benchmarks/query_eval.py --mode planner`  
+**Model:** Qwen2.5-7B-Instruct (vllm)  
+**What it checks:** For each query, verifies `plan_query()` produces the correct intent and all required filter keys, with no forbidden keys (hallucination guard).
+
+**Results: 20/20 PASS (100%)**
+
+All three intent types pass:
+- `find_businesses` (FB-01–14): 14/14 — correct filters, no spurious fields
+- `question_about_business` (QB-01–04): 4/4 — correct intent classification
+- `compare_businesses` (CB-01–02): 2/2 — correct intent classification
+
+**Notes:**
+- Prompt fixes from EXP-002 (anti-inference rules + few-shot) and EXP-005 (semantic/SQL decoupling) are holding across all 20 cases
+- Hallucination guard on FB-01 and FB-12 (forbidden: `attire`, `noise_level`) passed — no spurious filters on occasion-word queries
+- This is the post-prompt-tuning baseline; re-run after any `_SYSTEM_PROMPT` changes
+
+---
+
+## EXP-010 — Latency baseline (per-stage breakdown, vllm)
+**Date:** 2026-04-23  
+**Model:** Qwen2.5-7B-Instruct (vllm)  
+**What it measures:** Per-stage wall-clock time for 3 queries. First query includes cold-start cost (model/embedding warmup).
+
+**Results:**
+
+| Stage | Q1 bachelor party (cold) | Q2 romantic date (warm) | Q3 jazz brunch (warm) |
+|---|---:|---:|---:|
+| planner | 18,243 ms | 2,722 ms | 2,893 ms |
+| sql_filter | 6 ms | 4 ms | 8 ms |
+| retrieval | 10,967 ms | 2,886 ms | 1,385 ms |
+| meta_fetch | 1 ms | 1 ms | 0 ms |
+| synthesizer | 21,419 ms | 13,588 ms | 14,152 ms |
+| **TOTAL** | **50,635 ms** | **19,201 ms** | **18,438 ms** |
+| businesses | 5 | 5 | 4 |
+
+**Spec target:** warm p50 < 15,000 ms
+
+**Analysis:**
+- Cold-start overhead: ~15s on planner + ~9s on retrieval (first call initialises model weights and ChromaDB HNSW index) — not representative of steady-state
+- **Warm p50 estimate: ~18–19s** — 3–4s above the 15s target
+- `sql_filter` and `meta_fetch` are negligible (<10ms) — not optimization targets
+- **Synthesizer is the dominant bottleneck: 13–21s warm** — accounts for ~75% of warm latency
+- Planner is 2.7–2.9s warm — acceptable but can be parallelized with retrieval if needed
+- Retrieval is 1–3s warm — secondary bottleneck
+
+**Next:** Reduce synthesizer latency. Candidates: shorter prompt, streaming response, fewer snippets per business, or parallelise planner + retrieval.
