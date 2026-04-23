@@ -44,3 +44,25 @@
 **Open issues from EXP-001 still pending:**
 - Synthesizer faithfulness (hallucinated details, inverted evidence)
 - Latency 172s — two sequential LLM calls on local mlx_lm
+
+---
+
+## EXP-003 — Timeout fix + synthesizer faithfulness prompt
+**Date:** 2026-04-23  
+**Query:** "bachelor party spot" (shorter, no "loud")  
+**Changes:** `timeout=300s` on OpenAI clients; negative evidence handling rules in synthesizer prompt; temperature 0.3 → 0.0
+
+**Status:** Pipeline works end-to-end. Quality issues remain.
+
+**Query plan:** `{"good_for_groups": true}` — correct, no spurious filters  
+**Latency:** 95s (down from 172s on shorter query)  
+**Businesses returned:** 17 unique — too many, overwhelms 7B context
+
+**Notes:**
+- `good_for_groups: true` is a loose filter; large candidate pool → 17 businesses in synthesizer
+- Synthesizer only synthesized 2 out of 17 businesses coherently — context overload
+- One hallucination: said "bachelorette party" for La Boca (review said bachelor party)
+- Dickie Brennan's correctly absent — negative evidence prompt fix worked
+- Timeout fix resolved BrokenPipeError from EXP-002
+
+**Fix applied:** Cap synthesizer to top 5 businesses by semantic distance (`max_businesses=5`)
