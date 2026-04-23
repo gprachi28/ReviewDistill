@@ -78,6 +78,26 @@ dishes, nuanced atmosphere, experience narratives, local knowledge.
 
 ---
 
+## Security
+
+The Query Planner is an LLM — its output is untrusted user-controlled data at the SQL
+boundary.
+
+**SQL injection prevention:** `sql_filter.py` validates all LLM-generated field names
+against explicit whitelists (`_BOOLEAN_FIELDS`, `_SCALAR_FIELDS`, `_JSON_FIELDS`) before
+any interpolation into SQL strings. JSON attribute sub-keys (e.g. `brunch`, `live`) are
+checked against a per-field allowlist. Any unrecognised field or sub-key is silently
+skipped. Filter values are always bound via SQLite parameterised queries — LLM output
+never touches a SQL string directly.
+
+**Input validation:** `question` fields on all API request schemas enforce
+`max_length=2000` to prevent oversized inputs from exhausting LLM context.
+
+**Session IDs:** Generated server-side with `uuid.uuid4()`. Clients supply an ID to
+continue a session; unknown IDs start fresh rather than erroring.
+
+---
+
 ## Stack
 
 | Tool | Role |
