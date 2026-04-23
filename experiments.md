@@ -109,3 +109,23 @@
 - Latency: 118s — still far from <15s target; two sequential local LLM calls are the bottleneck
 
 **Open:** Latency is the main remaining issue for a usable demo.
+
+---
+
+## EXP-006 — Faithfulness visibility (evidence as list[str])
+**Date:** 2026-04-23  
+**Query:** "bachelor party spot, loud, handles large groups"  
+**Change:** `evidence: str` → `evidence: list[str]`, populated with all snippets the LLM saw
+
+**Status:** Faithfulness now auditable. "Two-hour wait" claim verified as grounded (snippet 2 of Jacques-Imo's).
+
+**Notes:**
+- Jacques-Imo's 3-snippet evidence is excellent — loud rowdy atmosphere, bachelor party mentions, food praise; best retrieval result so far
+- La Casita well grounded — courtyard, large group, no reservation
+- 3 of 5 businesses are 3.5★ — no minimum star filter in pipeline; low-quality businesses getting through
+- Lucy's evidence ("Cool vibe") is too thin to be useful — one sentence
+- Rock-n-Saké is a bachelorette review, and truncated mid-sentence in ChromaDB
+
+**Next candidates:**
+- Add minimum stars filter (≥ 4.0) on retrieved snippets before passing to synthesizer
+- Or filter at business level in SQL (`stars >= 4.0`)
