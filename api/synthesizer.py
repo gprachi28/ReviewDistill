@@ -19,6 +19,7 @@ _SYSTEM_PROMPT = """You are a knowledgeable local guide for New Orleans restaura
 Answer the user's question using ONLY the review evidence provided.
 Be conversational, specific, and direct. Name the restaurants you recommend.
 Do not invent details not present in the reviews.
+Recommend at most 3 restaurants. Give 1–2 sentences per recommendation. Do not repeat information across restaurants.
 
 Evidence handling rules:
 - If a review explicitly warns against a place for the user's use case, do NOT recommend it. You may note it as a place to avoid and quote the reason.
@@ -93,6 +94,8 @@ def synthesize(
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.0,
+        max_tokens=300,
+        stop=["<|im_end|>"],
     )
     answer = response.choices[0].message.content.strip()
 
