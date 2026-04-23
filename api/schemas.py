@@ -21,7 +21,7 @@ class BusinessResult(BaseModel):
     name: str
     stars: float
     price_range: Optional[int]
-    evidence: str
+    evidence: list[str]  # all snippets passed to the LLM, ordered by relevance
 
 
 # ── v1 ─────────────────────────────────────────────────────────────────────────
