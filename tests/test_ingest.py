@@ -11,27 +11,27 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from config import settings
-from ingestion.ingest import embed, load_checkpoint, save_checkpoint, stream_reviews
+from ingestion.ingest_nola import embed, load_checkpoint, save_checkpoint, stream_reviews
 
 
 # ── checkpoint ────────────────────────────────────────────────────────────────
 
 
 def test_load_checkpoint_returns_zero_when_no_file(tmp_path, monkeypatch):
-    monkeypatch.setattr("ingestion.ingest.CHECKPOINT_FILE", tmp_path / "checkpoint.pkl")
+    monkeypatch.setattr("ingestion.ingest_nola.CHECKPOINT_FILE", tmp_path / "checkpoint.pkl")
     assert load_checkpoint() == 0
 
 
 def test_load_checkpoint_returns_saved_value(tmp_path, monkeypatch):
     cp = tmp_path / "checkpoint.pkl"
-    monkeypatch.setattr("ingestion.ingest.CHECKPOINT_FILE", cp)
+    monkeypatch.setattr("ingestion.ingest_nola.CHECKPOINT_FILE", cp)
     save_checkpoint(42)
     assert load_checkpoint() == 42
 
 
 def test_save_checkpoint_writes_to_disk(tmp_path, monkeypatch):
     cp = tmp_path / "checkpoint.pkl"
-    monkeypatch.setattr("ingestion.ingest.CHECKPOINT_FILE", cp)
+    monkeypatch.setattr("ingestion.ingest_nola.CHECKPOINT_FILE", cp)
     save_checkpoint(99)
     assert pickle.loads(cp.read_bytes()) == 99
 

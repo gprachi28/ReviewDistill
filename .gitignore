@@ -13,3 +13,6 @@ doc.understand.md
 plan.md
 docs/superpowers/
 ingestion/checkpoint_sql.pkl
+ingestion/checkpoint_nola.pkl
+*.db
+.DS_Store
