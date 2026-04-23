@@ -182,6 +182,20 @@ curl -X POST http://localhost:8000/api/v1/query \
   -d '{"question": "loud spot for a bachelor party that handles large groups"}'
 ```
 
+---
+
+## 🗺️ Roadmap
+
+| # | Item | Description |
+|---|---|---|
+| v2 | Multi-turn session (Rufus-style chat) | Last 3 conversation turns injected into Query Planner — resolves references like *"the first one"*, *"anything cheaper?"*, *"what about parking there?"*. In-memory session store, 30-min TTL. |
+| a | Eager startup loading | Load embedding model + ChromaDB HNSW index at FastAPI startup to eliminate ~12s cold-start overhead for real users. |
+| b | Locust load test | 5 concurrent users, 300s window — p50/p99 latency, req/s, error rate, cold vs warm. |
+| c | Quality benchmarking | RAGAS faithfulness eval: do recommendations actually match the query intent, or just keyword-match? |
+| d | Chat UI | Rufus-style conversational interface. |
+
+---
+
 **Example response:**
 ```json
 {
