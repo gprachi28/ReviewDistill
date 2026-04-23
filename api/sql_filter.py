@@ -108,12 +108,16 @@ def _drop_lowest_confidence(conditions: list[_Condition]) -> list[_Condition]:
 def filter_businesses(
     sql_filters: dict,
     db_path: str | None = None,
+    min_stars: float = 4.0,
 ) -> list[str] | None:
     """
     Return business_ids matching sql_filters.
 
+    A minimum star rating floor (default 4.0) is always applied and is never
+    relaxed by the sparse fallback — it is a quality gate, not a user constraint.
+
     Sparse fallback:
-      - If < 3 results: drop the lowest-confidence constraint, retry once.
+      - If < 3 results: drop the lowest-confidence LLM constraint, retry once.
       - If still < 3: return None (caller should use semantic-only retrieval).
 
     Returns None also when sql_filters is empty (no structured constraints).
@@ -122,18 +126,19 @@ def filter_businesses(
         return None
 
     db = db_path or settings.sqlite_path
+    base = [_Condition(sql="stars >= ?", params=[min_stars], confidence=3)]
     conditions = _build_conditions(sql_filters)
     if not conditions:
         return None
 
-    results = _execute(conditions, db)
+    results = _execute(base + conditions, db)
     if len(results) >= 3:
         return results
 
-    # Sparse fallback: relax one constraint and retry.
+    # Sparse fallback: relax one LLM constraint and retry (base never relaxed).
     if len(conditions) > 1:
         relaxed = _drop_lowest_confidence(conditions)
-        results = _execute(relaxed, db)
+        results = _execute(base + relaxed, db)
         if len(results) >= 3:
             return results
 
