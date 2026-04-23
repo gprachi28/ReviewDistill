@@ -66,3 +66,25 @@
 - Timeout fix resolved BrokenPipeError from EXP-002
 
 **Fix applied:** Cap synthesizer to top 5 businesses by semantic distance (`max_businesses=5`)
+
+---
+
+## EXP-004 — Synthesizer context cap + original query
+**Date:** 2026-04-23  
+**Query:** "bachelor party spot, loud, handles large groups"  
+**Changes:** `max_businesses=5` cap in synthesizer
+
+**Status:** Focused answer, but semantic retrieval is pulling negative reviews.
+
+**Query plan:** `{"noise_level": ["loud", "very_loud"], "good_for_groups": true}` — correct  
+**Latency:** 102s  
+**Businesses returned:** 5 (cap working)
+
+**Notes:**
+- Answer focuses on The Maison — well grounded in a genuinely good bachelor party review
+- "upstairs loft area" in the answer is a hallucination — not in any retrieved snippet
+- 4 out of 5 retrieved businesses have negative-sentiment reviews about loudness: complaints like "impossible to talk", "ears bleed", "weird loud music" — semantic query contains "loud" which matches complaints, not recommendations
+- SQL already handles `noise_level=loud` — semantic query duplicating it is causing retrieval pollution
+- Only 1 genuinely useful recommendation out of 5 businesses
+
+**Fix to try:** Remove SQL filter terms from semantic query in the planner — SQL handles structure, semantic should focus on qualitative aspects ("energetic celebration party atmosphere" not "loud")
