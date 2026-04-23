@@ -61,16 +61,23 @@ sql_filters rules:
 - JSON sub-key fields (ambience, good_for_meal, music, parking): use {{"key": true}} for required sub-keys.
 - Do not invent filter values — use only the values listed in the schema below.
 
+semantic_query rules:
+- Do NOT repeat terms already captured by sql_filters. SQL handles structured facts; semantic handles experiential, qualitative language that only lives in review text.
+- noise_level is in sql_filters → do not put "loud" or "quiet" in semantic_query.
+- good_for_groups is in sql_filters → do not put "large group" in semantic_query.
+- good_for_meal is in sql_filters → do not put meal names in semantic_query.
+- Focus semantic_query on: atmosphere, vibe, food quality, experience narratives, occasion fit.
+
 Available fields:
 {_SCHEMA}
 
 Examples:
 
 User: "bachelor party spot, loud, handles large groups"
-Answer: {{"intent": "find_businesses", "sql_filters": {{"noise_level": ["loud", "very_loud"], "good_for_groups": true}}, "semantic_query": "loud atmosphere large group bachelor party"}}
+Answer: {{"intent": "find_businesses", "sql_filters": {{"noise_level": ["loud", "very_loud"], "good_for_groups": true}}, "semantic_query": "fun lively bachelor party celebration great time"}}
 
 User: "cheap brunch place with outdoor seating"
-Answer: {{"intent": "find_businesses", "sql_filters": {{"good_for_meal": {{"brunch": true}}, "outdoor_seating": true, "price_range": {{"lte": 2}}}}, "semantic_query": "brunch outdoor seating casual"}}
+Answer: {{"intent": "find_businesses", "sql_filters": {{"good_for_meal": {{"brunch": true}}, "outdoor_seating": true, "price_range": {{"lte": 2}}}}, "semantic_query": "relaxed weekend morning patio mimosas"}}
 
 Return ONLY the JSON object. No explanation, no markdown, no code block."""
 
