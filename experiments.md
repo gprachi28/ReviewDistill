@@ -88,3 +88,24 @@
 - Only 1 genuinely useful recommendation out of 5 businesses
 
 **Fix to try:** Remove SQL filter terms from semantic query in the planner — SQL handles structure, semantic should focus on qualitative aspects ("energetic celebration party atmosphere" not "loud")
+
+---
+
+## EXP-005 — Semantic query decoupled from SQL filters
+**Date:** 2026-04-23  
+**Query:** "bachelor party spot, loud, handles large groups"  
+**Change:** Prompt rule: semantic_query must not repeat SQL filter terms + updated few-shot examples
+
+**Status:** Retrieved reviews are now positive/relevant. Clear improvement.
+
+**Query plan:** `{"noise_level": ["loud", "very_loud"], "good_for_groups": true}`, `semantic_query: "fun lively bachelor party celebration great time"` — clean separation  
+**Latency:** 118s
+
+**Notes:**
+- All 5 retrieved businesses have genuinely positive bachelor party reviews — no more noise complaints
+- Answer recommends Jacques-Imo's and La Casita, both well grounded in evidence
+- Possible hallucination: "two-hour wait" for Jacques-Imo's — not in the displayed evidence snippet; may be in one of the 3 non-displayed snippets the LLM sees (hard to verify from response alone)
+- `evidence` field only shows best snippet; LLM sees up to 3 per business — makes faithfulness hard to audit from the API response
+- Latency: 118s — still far from <15s target; two sequential local LLM calls are the bottleneck
+
+**Open:** Latency is the main remaining issue for a usable demo.
