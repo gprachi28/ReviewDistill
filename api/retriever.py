@@ -18,6 +18,7 @@ QUERY_PREFIX = "search_query: "
 # Lazy singletons — loaded once on first call, reused for every request.
 _model: EmbeddingModel | None = None
 _collection = None
+_collection_size: int | None = None
 
 
 def _get_model() -> EmbeddingModel:
@@ -28,10 +29,11 @@ def _get_model() -> EmbeddingModel:
 
 
 def _get_collection():
-    global _collection
+    global _collection, _collection_size
     if _collection is None:
         client = chromadb.PersistentClient(path=settings.chroma_path)
         _collection = client.get_collection(settings.chroma_collection)
+        _collection_size = _collection.count()
     return _collection
 
 
@@ -61,7 +63,8 @@ def retrieve(
     where = {"business_id": {"$in": business_ids}} if business_ids else None
 
     # Cap n_results to the collection size to avoid ChromaDB errors on small pools.
-    n = min(top_k, collection.count())
+    # _collection_size is cached at first load — the collection is read-only at runtime.
+    n = min(top_k, _collection_size or top_k)
     if n == 0:
         return []
 
