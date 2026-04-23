@@ -106,7 +106,7 @@ def synthesize(
             name=meta.get("name", bid),
             stars=meta.get("stars", 0.0),
             price_range=meta.get("price_range"),
-            evidence=snips[0]["text"],
+            evidence=[s["text"] for s in snips[:snippets_per_business]],
         ))
 
     return answer, businesses
