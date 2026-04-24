@@ -193,7 +193,7 @@ curl -X POST http://localhost:8000/api/v1/query \
 | a | Eager startup loading | Load embedding model + ChromaDB HNSW index at FastAPI startup to eliminate ~12s cold-start overhead for real users. |
 | b | Locust load test | 5 concurrent users, 300s window — p50/p99 latency, req/s, error rate, cold vs warm. |
 | c | Quality benchmarking | RAGAS faithfulness eval: do recommendations actually match the query intent, or just keyword-match? |
-| d | Chat UI | Rufus-style conversational interface. |
+| d | Chat UI + Streaming | Rufus-style conversational interface with streaming synthesizer response — first word appears at ~2.5s (planner + retrieval), answer fills in as it generates. Perceived latency near-zero. |
 
 ### v2 — Planned
 
