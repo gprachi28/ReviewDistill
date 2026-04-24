@@ -4,17 +4,18 @@ benchmarks/latency_breakdown.py
 Per-stage latency breakdown for the v1 pipeline.
 
 Run:
-    python benchmarks/latency_breakdown.py
+    PYTHONPATH=. .venv/bin/python benchmarks/latency_breakdown.py
 
-Runs 3 queries in order. First query includes cold-start overhead (model/ChromaDB
-warmup) — reported separately. Warm queries are Q2 and Q3.
+Calls _get_model() and _get_collection() before timed queries to simulate
+the warmed state produced by FastAPI's startup handler. All 3 queries are
+measured at warm-state latency.
 
-Matches the measurement methodology from EXP-010.
+Matches the measurement methodology from EXP-010 onwards.
 """
 import time
 
 from api.query_planner import plan_query
-from api.retriever import retrieve
+from api.retriever import _get_collection, _get_model, retrieve
 from api.sql_filter import filter_businesses
 from api.synthesizer import synthesize
 from api.pipeline_v1 import _fetch_business_meta
@@ -56,14 +57,18 @@ def run_with_breakdown(question: str) -> dict:
 
 
 def main():
+    print("Warming up embedding model and ChromaDB index...")
+    _get_model()
+    _get_collection()
+    print("Warmup complete.\n")
+
     header = f"{'Stage':<12}" + "".join(f"  Q{i+1:<18}" for i in range(len(QUERIES)))
     print(header)
     print("-" * len(header))
 
     all_results = []
     for i, q in enumerate(QUERIES):
-        label = "(cold)" if i == 0 else "(warm)"
-        print(f"\nRunning Q{i+1} {label}: {q!r}")
+        print(f"\nRunning Q{i+1}: {q!r}")
         all_results.append(run_with_breakdown(q))
 
     print()
@@ -74,7 +79,7 @@ def main():
             row += f"  {r[stage]:>8} ms          " if stage != "businesses" else f"  {r[stage]:>8}              "
         print(row)
 
-    warm = [r["total"] for r in all_results[1:]]
+    warm = [r["total"] for r in all_results]
     print(f"\nWarm p50 estimate: {sorted(warm)[len(warm)//2]:,} ms  (target: <15,000 ms)")
 
 

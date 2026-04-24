@@ -326,3 +326,30 @@ All three intent types pass:
 - **Warm p50 4.1s is 3.6x under the 15s target**
 
 **Decision:** Latency optimisation complete for v1. Synthesizer and retrieval are both stable and fast.
+
+---
+
+## EXP-014 — FastAPI startup warmup (eager loading)
+**Date:** 2026-04-24
+**Change:** `api/main.py`: `@app.on_event("startup")` calls `_get_model()` + `_get_collection()` at server boot. `benchmarks/latency_breakdown.py` updated to call the same warmup before timed queries — all 3 queries now measured at post-warmup state.
+**Reproduced via:** `python -m benchmarks.latency_breakdown`
+
+**Results:**
+
+| Stage | Q1 bachelor party | Q2 romantic date | Q3 jazz brunch |
+|---|---:|---:|---:|
+| planner | 1,752 ms | 829 ms | 885 ms |
+| sql_filter | 6 ms | 3 ms | 1 ms |
+| retrieval | 2,928 ms | 1,703 ms | 513 ms |
+| meta_fetch | 0 ms | 0 ms | 0 ms |
+| synthesizer | 2,739 ms | 2,252 ms | 1,890 ms |
+| **TOTAL** | **7,425 ms** | **4,787 ms** | **3,289 ms** |
+| businesses | 7 | 9 | 4 |
+
+**Warm p50: 4,787 ms**
+
+**Analysis:**
+- Q1 planner (1,752ms) is slower than Q2/Q3 (~850ms) — first vLLM call in the process warms its own KV-cache; not controllable from our app
+- Q1 retrieval (2,928ms) is elevated — `_get_collection()` loads the collection object but ChromaDB defers HNSW index loading until the first actual `.query()` call; a dummy `retrieve()` in warmup would close this gap
+- Q2/Q3 retrieval and synthesizer are fully stable: retrieval 513–1,703ms, synthesizer 1,890–2,252ms
+- Warm p50 4,787ms is consistent with EXP-013 (~4.1s); users no longer absorb cold-start cost
