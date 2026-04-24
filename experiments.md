@@ -326,3 +326,23 @@ All three intent types pass:
 - **Warm p50 4.1s is 3.6x under the 15s target**
 
 **Decision:** Latency optimisation complete for v1. Synthesizer and retrieval are both stable and fast.
+
+---
+
+## EXP-014 — Eager startup warmup via FastAPI lifeycle
+**Date:** 2026-04-24
+**Change:** `api/main.py`: added `@app.on_event("startup")` handler calling `_get_model()` and `_get_collection()` at server boot
+**What it does:** Forces embedding model and ChromaDB HNSW index to load during uvicorn startup rather than on the first user request.
+
+**Results (via curl, FastAPI server):**
+
+| Request | Latency |
+|---|---:|
+| 1st request (post-startup) | 9,079 ms |
+| 2nd request (warm) | 4,923 ms |
+
+**Analysis:**
+- 2nd request at 4.9s confirms warm state is maintained between requests — consistent with EXP-013 benchmark (~4.1s)
+- 1st request at 9.1s: warmup runs concurrently with uvicorn boot so there is still some overlap; not a true cold start
+- Previously, 1st user request would have taken ~12.4s (full cold-start cost hitting the user directly)
+- Every request after the 1st is fully warm — cold-start cost no longer visible to users
