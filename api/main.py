@@ -7,9 +7,22 @@ FastAPI application. Run with:
 from fastapi import FastAPI, HTTPException
 
 from api.pipeline_v1 import run
+from api.retriever import _get_collection, _get_model
 from api.schemas import QueryRequest, QueryResponse
 
 app = FastAPI(title="Yelp NOLA Conversational Assistant")
+
+
+@app.on_event("startup")
+def warmup() -> None:
+    """Eager-load the embedding model and ChromaDB index at server startup.
+
+    Without this, the first user query bears the full cold-start cost (~12s):
+    embedding model initialisation + HNSW index loading from disk. After warmup,
+    every query hits warm state.
+    """
+    _get_model()
+    _get_collection()
 
 
 @app.post("/api/v1/query", response_model=QueryResponse)
