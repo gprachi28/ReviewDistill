@@ -10,30 +10,49 @@ A conversational restaurant assistant for New Orleans. Ask natural language ques
 
 Two-step pipeline — one deterministic, one semantic:
 
-```
-User question
-      │
-      ▼
-┌─────────────────────────────────────┐
-│  Query Planner  (LLM call 1)        │
-│  question → {sql_filters,           │
-│               semantic_query,       │
-│               intent}               │
-└──────────────┬──────────────────────┘
-               │
-        ┌──────┴──────┐
-        ▼             ▼
-   SQL filter     ChromaDB query
-   1,199 → ~30    top-K snippets
-   businesses     within candidate pool
-        │             │
-        └──────┬───────┘
-               ▼
-┌─────────────────────────────────────┐
-│  Synthesizer  (LLM call 2)          │
-│  candidates + review evidence →     │
-│  conversational answer              │
-└─────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Q([User question])
+
+    subgraph PLANNER["Query Planner — LLM Call 1"]
+        P["Qwen2.5-7B-Instruct-4bit · mlx_lm.server
+        question + attribute schema → sql_filters · semantic_query · intent"]
+    end
+
+    subgraph RETRIEVAL["Hybrid Retrieval"]
+        SQL["SQL Filter
+        SQLite · business attributes
+        1,199 → ~30 candidates · 100% metadata precision"]
+
+        SEM["Semantic Retrieval
+        ChromaDB · 621K embeddings
+        nomic-embed-text-v1.5 · 256-dim
+        top-K review snippets per candidate"]
+    end
+
+    subgraph SYNTHESIZER["Synthesizer — LLM Call 2"]
+        S["Qwen2.5-7B-Instruct-4bit · mlx_lm.server
+        candidates + review snippets → conversational answer"]
+    end
+
+    A([Named recommendations + review-grounded reasoning])
+
+    Q --> PLANNER
+    P -- sql_filters --> SQL
+    P -- semantic_query --> SEM
+    SQL --> SYNTHESIZER
+    SEM --> SYNTHESIZER
+    S --> A
+
+    style PLANNER fill:#FFE8E8,stroke:#FF6B6B,stroke-width:2px
+    style RETRIEVAL fill:#E5F9F7,stroke:#4ECDC4,stroke-width:2px
+    style SYNTHESIZER fill:#FFFBE6,stroke:#FFD93D,stroke-width:2px
+    style P fill:#FF6B6B,stroke:#ee5555,color:#fff
+    style SQL fill:#95E1D3,stroke:#4ECDC4,color:#1a1a1a
+    style SEM fill:#4ECDC4,stroke:#2ab5b3,color:#1a1a1a
+    style S fill:#FFD93D,stroke:#e6c000,color:#1a1a1a
+    style Q fill:#f5f5f5,stroke:#aaa,color:#333
+    style A fill:#f5f5f5,stroke:#aaa,color:#333
 ```
 
 **Step 1 — SQL filter (structured precision).** The Query Planner parses the question into structured filters drawn from Yelp business attributes: noise level, price range, alcohol, outdoor seating, live music, good for groups, ambience, meal type, and more. This shrinks 1,199 restaurants to a precise candidate pool with 100% metadata accuracy.
