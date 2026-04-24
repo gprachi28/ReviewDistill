@@ -60,6 +60,7 @@ def main():
     print("Warming up embedding model and ChromaDB index...")
     _get_model()
     _get_collection()
+    retrieve("warmup")  # forces HNSW index into memory before timed queries
     print("Warmup complete.\n")
 
     header = f"{'Stage':<12}" + "".join(f"  Q{i+1:<18}" for i in range(len(QUERIES)))

@@ -7,7 +7,7 @@ FastAPI application. Run with:
 from fastapi import FastAPI, HTTPException
 
 from api.pipeline_v1 import run
-from api.retriever import _get_collection, _get_model
+from api.retriever import _get_collection, _get_model, retrieve
 from api.schemas import QueryRequest, QueryResponse
 
 app = FastAPI(title="Yelp NOLA Conversational Assistant")
@@ -23,6 +23,7 @@ def warmup() -> None:
     """
     _get_model()
     _get_collection()
+    retrieve("warmup")  # forces HNSW index into memory
 
 
 @app.post("/api/v1/query", response_model=QueryResponse)

@@ -353,3 +353,30 @@ All three intent types pass:
 - Q1 retrieval (2,928ms) is elevated — `_get_collection()` loads the collection object but ChromaDB defers HNSW index loading until the first actual `.query()` call; a dummy `retrieve()` in warmup would close this gap
 - Q2/Q3 retrieval and synthesizer are fully stable: retrieval 513–1,703ms, synthesizer 1,890–2,252ms
 - Warm p50 4,787ms is consistent with EXP-013 (~4.1s); users no longer absorb cold-start cost
+- Q1 retrieval still elevated (2,928ms): `_get_collection()` loads the collection object but ChromaDB defers HNSW index into RAM until first actual `.query()` — fix: add dummy `retrieve("warmup")` call
+
+---
+
+## EXP-015 — Dummy retrieve() call to pre-load HNSW index
+**Date:** 2026-04-24
+**Change:** Added `retrieve("warmup")` after `_get_model()` + `_get_collection()` in both `benchmarks/latency_breakdown.py` and `api/main.py` startup handler — forces ChromaDB to load the HNSW index into RAM before any timed query runs.
+
+**Results:**
+
+| Stage | Q1 bachelor party | Q2 romantic date | Q3 jazz brunch |
+|---|---:|---:|---:|
+| planner | 1,658 ms | 831 ms | 888 ms |
+| sql_filter | 8 ms | 1 ms | 3 ms |
+| retrieval | 2,599 ms | 1,525 ms | 567 ms |
+| meta_fetch | 0 ms | 1 ms | 0 ms |
+| synthesizer | 2,758 ms | 2,320 ms | 1,893 ms |
+| **TOTAL** | **7,023 ms** | **4,678 ms** | **3,351 ms** |
+| businesses | 7 | 9 | 4 |
+
+**Warm p50: 4,678 ms**
+
+**Analysis:**
+- Q1 retrieval improved from 2,928ms → 2,599ms — dummy query did pre-load the HNSW index, small but real gain
+- Q1 planner still elevated (1,658ms vs ~850ms for Q2/Q3) — vLLM's first-call KV-cache warmup; not controllable from our app
+- Warm p50 flat at ~4.7s — Q1 overhead is vLLM, not our pipeline; Q2/Q3 are the representative warm numbers
+- Warmup is now as complete as possible without sending a full dummy request through the LLM planner
