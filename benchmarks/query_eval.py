@@ -7,7 +7,7 @@ Two modes:
     --mode filter   (default) — run expected_filters through filter_businesses()
                                  to verify DB coverage. No LLM required.
     --mode planner  — call plan_query() for each case, check intent + filters.
-                       Requires vllm server running at settings.vllm_base_url.
+                       Requires mlx_lm.server running at settings.llm_base_url.
 
 Usage:
     python benchmarks/query_eval.py
@@ -247,7 +247,7 @@ def run_planner_mode() -> None:
     """Call plan_query() for each case and check intent + filter fields."""
     from api.query_planner import plan_query
 
-    print("PLANNER MODE — requires vllm server")
+    print("PLANNER MODE — requires mlx_lm.server")
     print("─" * 60)
 
     total = 0
@@ -290,7 +290,7 @@ def main() -> None:
         "--mode",
         choices=["filter", "planner"],
         default="filter",
-        help="filter: DB coverage check (no LLM). planner: full plan_query eval (needs vllm).",
+        help="filter: DB coverage check (no LLM). planner: full plan_query eval (needs mlx_lm.server).",
     )
     args = parser.parse_args()
 

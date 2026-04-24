@@ -60,7 +60,7 @@ User question
 
 ## ⚡ Performance
 
-All results on Apple M4 Pro, `mlx-community/Qwen2.5-7B-Instruct-4bit` via vLLM.
+All results on Apple M4 Pro, `mlx-community/Qwen2.5-7B-Instruct-4bit` via `mlx_lm.server` (MPS).
 
 ### Latency — v1 single-shot (per-stage breakdown)
 
@@ -74,6 +74,8 @@ All results on Apple M4 Pro, `mlx-community/Qwen2.5-7B-Instruct-4bit` via vLLM.
 | **End-to-end** | **~12,400 ms** | **~4,100 ms** |
 
 **Warm p50: ~4.1s** — 3.6× under the <15s target. Cold overhead is embedding model + ChromaDB HNSW index loading on first request.
+
+![Latency optimisation across 15 experiments](benchmarks/latency_benchmarks.png)
 
 Reproduce:
 ```bash
@@ -131,8 +133,8 @@ The Query Planner is an LLM — its output is treated as **untrusted** at the SQ
 | Metadata filter | SQLite | Business attributes, indexed |
 | Vector store | ChromaDB | 621K review embeddings, persistent local HNSW |
 | Embeddings | nomic-embed-text-v1.5 | 256-dim MRL truncation, via mlx-embedding-models (MPS) |
-| LLM | Qwen2.5-7B-Instruct-4bit | Query Planner + Synthesizer, single model via vLLM |
-| HTTP client | openai SDK | Pointed at vLLM's `/v1` endpoint |
+| LLM | Qwen2.5-7B-Instruct-4bit | Query Planner + Synthesizer, single model via mlx_lm.server (MPS) |
+| HTTP client | openai SDK | Pointed at mlx_lm.server's OpenAI-compatible `/v1` endpoint |
 | Config | pydantic-settings | `.env`-based |
 
 ---
@@ -144,12 +146,7 @@ The Query Planner is an LLM — its output is treated as **untrusted** at the SQ
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env          # set VLLM_BASE_URL and VLLM_MODEL
-```
-
-**vLLM for Apple Silicon:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/vllm-project/vllm-metal/main/install.sh | bash
+cp .env.example .env          # override LLM_BASE_URL if using a non-default port
 ```
 
 ---
@@ -163,11 +160,9 @@ python -m ingestion.ingest_nola \
   --review-file /path/to/yelp_academic_dataset_review.json
 ```
 
-**2. Start vLLM server:**
+**2. Start LLM server (mlx_lm, Apple Silicon):**
 ```bash
-vllm serve mlx-community/Qwen2.5-7B-Instruct-4bit \
-  --port 8001 \
-  --max-model-len 16384
+.venv/bin/mlx_lm.server --model mlx-community/Qwen2.5-7B-Instruct-4bit --port 8001
 ```
 
 **3. Start API:**

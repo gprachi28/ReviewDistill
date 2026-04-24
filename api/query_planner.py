@@ -14,7 +14,7 @@ from pydantic import ValidationError
 from api.schemas import QueryPlan
 from config import settings
 
-_client = OpenAI(base_url=settings.vllm_base_url, api_key="not-required", timeout=300.0)
+_client = OpenAI(base_url=settings.llm_base_url, api_key="not-required", timeout=300.0)
 
 # Full attribute schema injected verbatim into the planner prompt.
 _SCHEMA = """
@@ -88,7 +88,7 @@ No explanation, no markdown fences."""
 
 def _call_llm(messages: list[dict]) -> str:
     response = _client.chat.completions.create(
-        model=settings.vllm_model,
+        model=settings.llm_model,
         messages=messages,
         temperature=0.0,
     )

@@ -180,14 +180,14 @@ QB/CB cases skipped in filter mode — intent-only, no SQL filters.
 **Notes:**
 - FB-14 (`attire=dressy + music.live=true`) is the tightest filter at exactly 3 businesses — right at the sparse fallback threshold; watch for regressions if min_stars floor is raised
 - FB-03 (`good_for_meal.brunch + music.live`) returns 6 — healthy headroom despite two JSON sub-key filters
-- Next: run `--mode planner` once vllm is up to get planner accuracy scores
+- Next: run `--mode planner` once mlx_lm.server is up to get planner accuracy scores
 
 ---
 
 ## EXP-009 — query_eval.py planner accuracy baseline
 **Date:** 2026-04-23  
 **Mode:** `python benchmarks/query_eval.py --mode planner`  
-**Model:** Qwen2.5-7B-Instruct (vllm)  
+**Model:** Qwen2.5-7B-Instruct (mlx_lm.server, full precision)  
 **What it checks:** For each query, verifies `plan_query()` produces the correct intent and all required filter keys, with no forbidden keys (hallucination guard).
 
 **Results: 20/20 PASS (100%)**
@@ -204,9 +204,9 @@ All three intent types pass:
 
 ---
 
-## EXP-010 — Latency baseline (per-stage breakdown, vllm)
+## EXP-010 — Latency baseline (per-stage breakdown, mlx_lm.server)
 **Date:** 2026-04-23  
-**Model:** Qwen2.5-7B-Instruct (vllm)  
+**Model:** Qwen2.5-7B-Instruct (mlx_lm.server, full precision)  
 **What it measures:** Per-stage wall-clock time for 3 queries. First query includes cold-start cost (model/embedding warmup).
 
 **Results:**
@@ -237,8 +237,8 @@ All three intent types pass:
 
 ## EXP-011 — 4-bit quantized model (latency)
 **Date:** 2026-04-23
-**Model:** mlx-community/Qwen2.5-7B-Instruct-4bit (vllm)
-**Change:** `vllm_model` switched from `Qwen/Qwen2.5-7B-Instruct` to `mlx-community/Qwen2.5-7B-Instruct-4bit` in config + `.env`
+**Model:** mlx-community/Qwen2.5-7B-Instruct-4bit (mlx_lm.server, 4-bit quantized)
+**Change:** `llm_model` config key switched from `Qwen/Qwen2.5-7B-Instruct` to `mlx-community/Qwen2.5-7B-Instruct-4bit` in config + `.env`
 **Reproduced via:** `PYTHONPATH=. .venv/bin/python benchmarks/latency_breakdown.py`
 
 **Results:**
@@ -349,7 +349,7 @@ All three intent types pass:
 **Warm p50: 4,787 ms**
 
 **Analysis:**
-- Q1 planner (1,752ms) is slower than Q2/Q3 (~850ms) — first vLLM call in the process warms its own KV-cache; not controllable from our app
+- Q1 planner (1,752ms) is slower than Q2/Q3 (~850ms) — first mlx_lm.server call in the process warms its own KV-cache; not controllable from our app
 - Q1 retrieval (2,928ms) is elevated — `_get_collection()` loads the collection object but ChromaDB defers HNSW index loading until the first actual `.query()` call; a dummy `retrieve()` in warmup would close this gap
 - Q2/Q3 retrieval and synthesizer are fully stable: retrieval 513–1,703ms, synthesizer 1,890–2,252ms
 - Warm p50 4,787ms is consistent with EXP-013 (~4.1s); users no longer absorb cold-start cost
@@ -377,6 +377,6 @@ All three intent types pass:
 
 **Analysis:**
 - Q1 retrieval improved from 2,928ms → 2,599ms — dummy query did pre-load the HNSW index, small but real gain
-- Q1 planner still elevated (1,658ms vs ~850ms for Q2/Q3) — vLLM's first-call KV-cache warmup; not controllable from our app
-- Warm p50 flat at ~4.7s — Q1 overhead is vLLM, not our pipeline; Q2/Q3 are the representative warm numbers
+- Q1 planner still elevated (1,658ms vs ~850ms for Q2/Q3) — mlx_lm.server first-call KV-cache warmup; not controllable from our app
+- Warm p50 flat at ~4.7s — Q1 overhead is mlx_lm.server KV-cache warmup, not our pipeline; Q2/Q3 are the representative warm numbers
 - Warmup is now as complete as possible without sending a full dummy request through the LLM planner

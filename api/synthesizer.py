@@ -13,7 +13,7 @@ from openai import OpenAI
 from api.schemas import BusinessResult
 from config import settings
 
-_client = OpenAI(base_url=settings.vllm_base_url, api_key="not-required", timeout=300.0)
+_client = OpenAI(base_url=settings.llm_base_url, api_key="not-required", timeout=300.0)
 
 _SYSTEM_PROMPT = """You are a knowledgeable local guide for New Orleans restaurants.
 Answer the user's question using ONLY the review evidence provided.
@@ -88,7 +88,7 @@ def synthesize(
 
     user_prompt = _build_user_prompt(question, evidence_blocks)
     response = _client.chat.completions.create(
-        model=settings.vllm_model,
+        model=settings.llm_model,
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
