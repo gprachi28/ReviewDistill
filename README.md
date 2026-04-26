@@ -24,20 +24,25 @@ User question
            ┌───────────┴───────────┐
            │ sql_filters           │ semantic_query
            ▼                       ▼
-┌─────────────────────┐   ┌────────────────────────┐
-│  SQL Filter         │   │  Semantic Retrieval     │
-│  SQLite             │   │  ChromaDB · 621K embs   │
-│  1,199 → ~30 biz    │   │  nomic-embed-text-v1.5  │
-│  100% precision     │   │  top-K snippets/biz     │
-└──────────┬──────────┘   └───────────┬────────────┘
-           │                          │
-           └───────────┬──────────────┘
-                       │
+┌─────────────────────┐   ┌────────────────────────────────────────┐
+│  SQL Filter         │   │  Semantic Retrieval  (retriever.py)    │
+│  SQLite             │   │  embed("search_query: " + query)       │
+│  1,199 biz          │   │  ChromaDB collection.query(            │
+│  → stars >= 4.0     │   │    n_results=top_k=20,                 │
+│  → LLM filters      │   │    where={business_id: {$in: pool}}    │
+│  → ~30 candidates   │   │  )                                     │
+└──────────┬──────────┘   │  → 20 snippets, sorted by distance     │
+           │  business_ids └──────────────────┬─────────────────────┘
+           └──────────────────────────────────┘
+                       │ candidates + snippets
                        ▼
 ┌─────────────────────────────────────────────────────┐
 │  Synthesizer  (LLM Call 2)                          │
 │  Qwen2.5-7B-Instruct-4bit · mlx_lm.server          │
-│  candidates + review snippets → answer              │
+│  group snippets by business_id                      │
+│  take top 3 per business  (snippets_per_business=3) │
+│  cap to top 5 businesses  (max_businesses=5)        │
+│  → conversational answer + evidence list            │
 └─────────────────────────────────────────────────────┘
                        │
                        ▼
@@ -173,10 +178,12 @@ python -m ingestion.ingest_nola \
 .venv/bin/mlx_lm.server --model mlx-community/Qwen2.5-7B-Instruct-4bit --port 8001
 ```
 
-**3. Start API:**
+**3. Start API** (separate terminal):
 ```bash
-uvicorn api.main:app --port 8000
+PYTHONPATH=. .venv/bin/uvicorn api.main:app --port 8000
 ```
+
+FastAPI startup pre-loads the embedding model and ChromaDB HNSW index before accepting requests — the first query won't absorb cold-start cost. Only the mlx_lm.server KV-cache warmup on the very first LLM call will still show up as cold overhead.
 
 **4. Query:**
 ```bash
@@ -184,6 +191,15 @@ curl -X POST http://localhost:8000/api/v1/query \
   -H "Content-Type: application/json" \
   -d '{"question": "loud spot for a bachelor party that handles large groups"}'
 ```
+
+**5. Load test** (separate terminal, requires API + LLM server running):
+```bash
+PYTHONPATH=. .venv/bin/locust -f benchmarks/load_test.py \
+  --host http://localhost:8000 \
+  --users 5 --spawn-rate 1 --run-time 300s --headless
+```
+
+Stats are reported in four rows: `/api/v1/query [cold]`, `/api/v1/query [warm]` (HTTP round-trip), `server [cold]`, `server [warm]` (server-reported `latency_ms` from response body).
 
 ---
 
