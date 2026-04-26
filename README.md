@@ -6,6 +6,12 @@ A conversational restaurant assistant for New Orleans. Ask natural language ques
 
 ---
 
+## Demo
+
+<video src="images/Screen Recording 2026-04-26 at 16.32.12.mov" controls width="100%"></video>
+
+---
+
 ## ⚙️ How It Works
 
 Two-step pipeline — one deterministic, one semantic:
