@@ -486,3 +486,41 @@ All three intent types pass:
 - This is not the 2× throughput you'd get with truly independent hardware (e.g., two discrete GPUs or two separate machines), but a real and measurable improvement — particularly for user experience where tail latency matters most
 - Cold latency increased (29s → 36s) — both instances loading simultaneously compete for GPU memory bandwidth during warmup
 - Architecture validated: proxy routing is correct (all 200 OK, 0% error rate)
+
+---
+
+## EXP-018 — RAGAS Faithfulness Eval (gemini-2.5-pro judge)
+**Date:** 2026-04-26
+**Tool:** RAGAS 0.1.x — `benchmarks/ragas_eval.py --judge-only`
+**Judge:** gemini-2.5-pro via Google OpenAI-compatible endpoint
+**Samples:** 14 `find_businesses` queries (pre-collected Qwen pipeline outputs)
+**Metric:** RAGAS `faithfulness` — fraction of answer claims supported by retrieved review snippets (0–1)
+
+**Results:**
+
+| Query | Score |
+|---|---:|
+| outdoor patio restaurant with a full bar | 0.90 |
+| late-night Cajun food after a show on Frenchmen Street | 0.88 |
+| wheelchair accessible restaurant that caters events | 0.80 |
+| bachelorette dinner, upscale vibes, good for large groups | 0.64 |
+| jazz brunch with live music | 0.58 |
+| bachelor party spot, loud, handles large groups | 0.56 |
+| dressy dinner spot with live music | 0.56 |
+| family-friendly seafood place with parking | 0.55 |
+| happy hour bar with TVs to watch sports | 0.50 |
+| upscale dinner spot that takes reservations | 0.36 |
+| cheap brunch place with outdoor seating | 0.33 |
+| quiet romantic date spot | 0.33 |
+| dog-friendly restaurant with a patio | 0.00 |
+| BYOB place with casual attire | 0.00 |
+
+**Mean faithfulness: 0.501 (14/14 queries scored)**
+
+**Analysis:**
+- Mean 0.50 means roughly half the claims in synthesizer answers are grounded in the retrieved snippets — the synthesizer is over-generating beyond what the evidence supports
+- Two 0.00 scores (dog-friendly patio, BYOB casual) are outliers — synthesizer is making claims with no grounding at all for these queries; likely caused by thin retrieval (low-coverage attributes in the dataset)
+- High scorers (0.80–0.90) are queries with rich, specific review vocabulary — Cajun/Frenchmen St, outdoor patio — where retrieved snippets are detailed enough to fully support the answer
+- Low scorers (0.33) tend to be broad/generic queries (cheap brunch, romantic date) where the synthesizer fills in gaps the snippets don't cover
+
+**Next:** Investigate the two 0.00 queries — inspect retrieved snippets to determine if the issue is thin retrieval or synthesizer hallucination. Tighten synthesizer prompt to explicitly prohibit claims not present in evidence.
