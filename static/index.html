@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOLA AI — New Orleans Restaurant Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js"></script>
+  <style>
+    /* Minimal markdown typography for assistant bubbles */
+    .answer-text p { margin: 0.4em 0; }
+    .answer-text p:first-child { margin-top: 0; }
+    .answer-text p:last-child { margin-bottom: 0; }
+    .answer-text strong { font-weight: 600; color: #e2e8f0; }
+    .answer-text em { font-style: italic; color: #94a3b8; }
+    .answer-text ul, .answer-text ol { padding-left: 1.25em; margin: 0.4em 0; }
+    .answer-text li { margin: 0.2em 0; }
+  </style>
+</head>
+<body class="h-full flex flex-col text-slate-100" style="font-family: ui-sans-serif, system-ui, sans-serif;">
+
+  <!-- Header -->
+  <header class="shrink-0 border-b border-slate-700 px-6 py-3 flex items-center gap-3 bg-slate-800/60">
+    <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+    <span class="font-semibold text-slate-100 text-sm">NOLA AI</span>
+    <span class="text-slate-500 text-sm">New Orleans Restaurant Assistant</span>
+  </header>
+
+  <!-- Body: chat + console -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Chat panel -->
+    <div class="flex flex-col flex-1 overflow-hidden">
+
+      <!-- Messages -->
+      <div id="messages" class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+        <div class="text-slate-500 text-sm text-center py-10 select-none">
+          Ask about New Orleans restaurants — jazz brunches, late-night Cajun, bachelorette spots, outdoor patios...
+        </div>
+      </div>
+
+      <!-- Input bar -->
+      <div class="shrink-0 border-t border-slate-700 px-6 py-4 bg-slate-800/30">
+        <div class="flex gap-3 items-end max-w-3xl">
+          <div class="flex-1">
+            <textarea
+              id="input"
+              rows="2"
+              maxlength="2000"
+              placeholder="jazz brunch for a bachelorette party..."
+              class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 resize-none focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 transition-colors"
+            ></textarea>
+            <div class="text-right text-xs text-slate-600 mt-1"><span id="char-count">0</span> / 2000</div>
+          </div>
+          <button
+            id="send-btn"
+            disabled
+            class="mb-5 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed rounded-xl text-sm font-medium transition-colors"
+          >Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- System console -->
+    <div class="shrink-0 w-64 border-l border-slate-700 flex flex-col bg-slate-800/20">
+      <div class="shrink-0 px-4 py-3 border-b border-slate-700">
+        <span class="text-xs font-mono text-slate-500 uppercase tracking-widest">System Console</span>
+      </div>
+      <div id="console" class="flex-1 overflow-y-auto px-4 py-3 space-y-1.5 font-mono text-xs">
+        <div class="text-slate-700">Waiting for query...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // markdown-it: html disabled (default) — LLM output cannot inject executable HTML
+    const md = window.markdownit({ html: false, linkify: false });
+
+    const messagesEl = document.getElementById('messages');
+    const consoleEl  = document.getElementById('console');
+    const inputEl    = document.getElementById('input');
+    const sendBtn    = document.getElementById('send-btn');
+    const charCountEl = document.getElementById('char-count');
+
+    let currentBubbleContent = null; // inner div of the streaming assistant bubble
+    let currentTokens = '';
+
+    // ── Input handling ────────────────────────────────────────────────────────
+
+    inputEl.addEventListener('input', updateSendState);
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (!sendBtn.disabled) send();
+      }
+    });
+    sendBtn.addEventListener('click', send);
+
+    function updateSendState() {
+      const len = inputEl.value.length;
+      charCountEl.textContent = len;
+      sendBtn.disabled = inputEl.value.trim().length === 0 || len > 2000;
+    }
+
+    // ── Message rendering ─────────────────────────────────────────────────────
+
+    function addUserMessage(text) {
+      const wrap = document.createElement('div');
+      wrap.className = 'flex justify-end';
+      const bubble = document.createElement('div');
+      bubble.className = 'max-w-xl bg-emerald-700/25 border border-emerald-600/30 rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-slate-100';
+      bubble.textContent = text; // plain text — no HTML rendering needed for user input
+      wrap.appendChild(bubble);
+      messagesEl.appendChild(wrap);
+      scrollMessages();
+    }
+
+    function startAssistantBubble() {
+      currentTokens = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'flex justify-start';
+      const bubble = document.createElement('div');
+      bubble.className = 'max-w-xl bg-slate-800 border border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-100';
+      const inner = document.createElement('div');
+      inner.className = 'answer-text';
+      inner.innerHTML = '<span class="text-slate-600 animate-pulse">...</span>';
+      bubble.appendChild(inner);
+      wrap.appendChild(bubble);
+      messagesEl.appendChild(wrap);
+      currentBubbleContent = inner;
+      scrollMessages();
+    }
+
+    function appendToken(token) {
+      currentTokens += token;
+      if (currentBubbleContent) {
+        currentBubbleContent.innerHTML = md.render(currentTokens);
+        scrollMessages();
+      }
+    }
+
+    function renderBusinessCards(businesses) {
+      if (!businesses || businesses.length === 0) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'flex justify-start';
+      const grid = document.createElement('div');
+      grid.className = 'flex flex-col gap-2 max-w-xl';
+      for (const biz of businesses) {
+        const price = biz.price_range ? '$'.repeat(biz.price_range) : '—';
+        const starsNum = biz.stars.toFixed(1);
+        const snippet = biz.evidence && biz.evidence[0]
+          ? biz.evidence[0].slice(0, 110) + (biz.evidence[0].length > 110 ? '…' : '')
+          : '';
+        const card = document.createElement('div');
+        card.className = 'bg-slate-900 border border-slate-700 rounded-xl p-3';
+        card.innerHTML =
+          '<div class="flex items-baseline justify-between mb-1">' +
+            '<span class="font-medium text-slate-100 text-sm">' + esc(biz.name) + '</span>' +
+            '<span class="text-slate-500 text-xs ml-2">' + esc(price) + '</span>' +
+          '</div>' +
+          '<div class="text-amber-400 text-xs mb-2">' + esc(starsNum) + ' ★</div>' +
+          (snippet ? '<p class="text-slate-500 text-xs italic">"' + esc(snippet) + '"</p>' : '');
+        grid.appendChild(card);
+      }
+      wrap.appendChild(grid);
+      messagesEl.appendChild(wrap);
+      scrollMessages();
+    }
+
+    function scrollMessages() {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // ── Console ───────────────────────────────────────────────────────────────
+
+    function clearConsole() {
+      consoleEl.innerHTML = '';
+    }
+
+    function addConsoleEntry(icon, text, colorClass) {
+      const div = document.createElement('div');
+      div.className = 'flex items-start gap-1.5 ' + (colorClass || 'text-slate-400');
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'shrink-0';
+      iconSpan.textContent = icon;
+      const textSpan = document.createElement('span');
+      textSpan.textContent = text; // plain text — not rendered as HTML
+      div.appendChild(iconSpan);
+      div.appendChild(textSpan);
+      consoleEl.appendChild(div);
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    // ── SSE event handlers ────────────────────────────────────────────────────
+
+    function handleEvent(name, data) {
+      if (name === 'planning') {
+        const filterCount = Object.keys(data.sql_filters || {}).length;
+        addConsoleEntry('→', 'Intent: ' + data.intent, 'text-blue-400');
+        if (filterCount > 0) {
+          addConsoleEntry('⊞', filterCount + ' SQL filter' + (filterCount > 1 ? 's' : ''), 'text-slate-400');
+        }
+        addConsoleEntry('↳', data.semantic_query, 'text-slate-600');
+      } else if (name === 'candidates') {
+        addConsoleEntry('✓', 'Found ' + data.count + ' business' + (data.count !== 1 ? 'es' : ''), 'text-emerald-400');
+        const names = (data.businesses || []).slice(0, 5);
+        for (const n of names) addConsoleEntry('·', n, 'text-slate-600');
+        addConsoleEntry('⟳', 'Generating…', 'text-slate-400');
+      } else if (name === 'token') {
+        appendToken(data.text);
+      } else if (name === 'done') {
+        addConsoleEntry('✓', 'Done', 'text-emerald-400');
+        renderBusinessCards(data.businesses);
+      } else if (name === 'error') {
+        addConsoleEntry('✗', data.message, 'text-red-400');
+        if (currentBubbleContent) {
+          currentBubbleContent.innerHTML = '<span class="text-red-400">' + esc(data.message) + '</span>';
+        }
+      }
+    }
+
+    // ── Main send ─────────────────────────────────────────────────────────────
+
+    async function send() {
+      const question = inputEl.value.trim();
+      if (!question) return;
+
+      sendBtn.disabled = true;
+      inputEl.value = '';
+      charCountEl.textContent = '0';
+
+      clearConsole();
+      addUserMessage(question);
+      startAssistantBubble();
+
+      try {
+        const response = await fetch('/api/v1/query/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question }),
+        });
+
+        if (!response.ok) {
+          addConsoleEntry('✗', 'HTTP ' + response.status, 'text-red-400');
+          if (currentBubbleContent) {
+            currentBubbleContent.innerHTML = '<span class="text-red-400">Request failed (HTTP ' + response.status + ').</span>';
+          }
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          // SSE events are separated by \n\n; split on that boundary
+          const blocks = buffer.split('\n\n');
+          buffer = blocks.pop(); // last element may be incomplete — keep it
+
+          for (const block of blocks) {
+            if (!block.trim()) continue;
+            let eventName = 'message';
+            let dataStr = null;
+            for (const line of block.split('\n')) {
+              if (line.startsWith('event: ')) eventName = line.slice(7).trim();
+              else if (line.startsWith('data: ')) dataStr = line.slice(6).trim();
+            }
+            if (!dataStr) continue;
+            let data;
+            try { data = JSON.parse(dataStr); } catch { continue; }
+            handleEvent(eventName, data);
+          }
+        }
+      } catch (err) {
+        addConsoleEntry('✗', err.message, 'text-red-400');
+        if (currentBubbleContent) {
+          currentBubbleContent.innerHTML = '<span class="text-red-400">Connection error.</span>';
+        }
+      } finally {
+        sendBtn.disabled = false;
+        updateSendState(); // re-check based on input content
+        inputEl.focus();
+      }
+    }
+
+    // ── Utility ───────────────────────────────────────────────────────────────
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>
