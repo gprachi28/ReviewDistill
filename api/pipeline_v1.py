@@ -5,15 +5,18 @@ Single-shot query pipeline (v1): stateless, no session context.
 
 Public API:
     run(question) -> QueryResponse
+    stream(question) -> Iterator[str]  — SSE-formatted events
 """
+import json
 import sqlite3
 import time
+from collections.abc import Iterator
 
 from api.query_planner import plan_query
 from api.retriever import retrieve
 from api.schemas import QueryResponse
 from api.sql_filter import filter_businesses
-from api.synthesizer import synthesize
+from api.synthesizer import synthesize, synthesize_stream
 from config import settings
 
 
@@ -49,6 +52,44 @@ def run(question: str) -> QueryResponse:
         query_plan=query_plan,
         latency_ms=latency_ms,
     )
+
+
+def stream(question: str) -> Iterator[str]:
+    """
+    Execute the pipeline and yield SSE-formatted strings at each stage boundary.
+
+    Event sequence:
+        planning   — after Query Planner; carries intent, sql_filters, semantic_query
+        candidates — after retrieval + meta fetch; carries business count and names
+        token      — one per LLM token during synthesis; carries {"text": str}
+        done       — after synthesis; carries full BusinessResult list
+        error      — on any exception; carries {"message": str}
+    """
+    def sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+    try:
+        query_plan = plan_query(question)
+        yield sse("planning", query_plan.model_dump())
+
+        candidate_ids = filter_businesses(query_plan.sql_filters)
+        snippets = retrieve(query_plan.semantic_query, candidate_ids)
+        biz_ids = list({s["business_id"] for s in snippets})
+        business_meta = _fetch_business_meta(biz_ids)
+
+        yield sse("candidates", {
+            "count": len(biz_ids),
+            "businesses": [m["name"] for m in business_meta.values()],
+        })
+
+        token_iter, businesses = synthesize_stream(question, snippets, business_meta)
+        for token in token_iter:
+            yield sse("token", {"text": token})
+
+        yield sse("done", {"businesses": [b.model_dump() for b in businesses]})
+
+    except Exception as exc:
+        yield sse("error", {"message": str(exc)})
 
 
 def _fetch_business_meta(business_ids: list[str]) -> dict[str, dict]:
