@@ -5,8 +5,10 @@ LLM call 2: convert candidate businesses + review evidence into a conversational
 
 Public API:
     synthesize(question, snippets, business_meta) -> tuple[str, list[BusinessResult]]
+    synthesize_stream(question, snippets, business_meta) -> tuple[Iterator[str], list[BusinessResult]]
 """
 from collections import defaultdict
+from collections.abc import Iterator
 
 from openai import OpenAI
 
@@ -113,3 +115,71 @@ def synthesize(
         ))
 
     return answer, businesses
+
+
+def synthesize_stream(
+    question: str,
+    snippets: list[dict],
+    business_meta: dict[str, dict],
+    snippets_per_business: int = 3,
+    max_businesses: int = 5,
+) -> tuple[Iterator[str], list[BusinessResult]]:
+    """
+    Like synthesize(), but streams LLM tokens instead of waiting for the full answer.
+
+    The businesses list is built before the LLM call starts — it comes from snippets and
+    metadata, not from the generated text — so callers can emit it as a candidates event
+    before synthesis begins.
+
+    Returns:
+        (token_iterator, businesses) where token_iterator yields str tokens as they
+        arrive from the LLM, and businesses is the pre-built BusinessResult list.
+    """
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for s in snippets:
+        bid = s["business_id"]
+        if bid not in business_meta:
+            continue
+        if bid not in grouped and len(grouped) >= max_businesses:
+            continue
+        grouped[bid].append(s)
+
+    if not grouped:
+        return iter([]), []
+
+    evidence_blocks = [
+        _build_evidence_block(bid, business_meta[bid], snips[:snippets_per_business])
+        for bid, snips in grouped.items()
+    ]
+
+    businesses = [
+        BusinessResult(
+            business_id=bid,
+            name=business_meta[bid].get("name", bid),
+            stars=business_meta[bid].get("stars", 0.0),
+            price_range=business_meta[bid].get("price_range"),
+            evidence=[s["text"] for s in snips[:snippets_per_business]],
+        )
+        for bid, snips in grouped.items()
+    ]
+
+    user_prompt = _build_user_prompt(question, evidence_blocks)
+
+    def _token_iter() -> Iterator[str]:
+        response = _client.chat.completions.create(
+            model=settings.llm_model,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.0,
+            max_tokens=300,
+            stop=["<|im_end|>"],
+            stream=True,
+        )
+        for chunk in response:
+            token = chunk.choices[0].delta.content
+            if token:
+                yield token
+
+    return _token_iter(), businesses
