@@ -380,3 +380,109 @@ All three intent types pass:
 - Q1 planner still elevated (1,658ms vs ~850ms for Q2/Q3) — mlx_lm.server first-call KV-cache warmup; not controllable from our app
 - Warm p50 flat at ~4.7s — Q1 overhead is mlx_lm.server KV-cache warmup, not our pipeline; Q2/Q3 are the representative warm numbers
 - Warmup is now as complete as possible without sending a full dummy request through the LLM planner
+
+---
+
+## EXP-016 — Locust load test (5 users, 300s)
+**Date:** 2026-04-24
+**Tool:** Locust 2.31.3 — `benchmarks/load_test.py`
+**Command:** `locust -f benchmarks/load_test.py --host http://localhost:8000 --users 5 --spawn-rate 1 --run-time 300s --headless`
+
+**Results:**
+
+| Type | Name | # reqs | # fails | Avg | Min | Max | p50 | p75 | p90 | p95 | p99 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| POST | /api/v1/query [cold] | 5 | 0 | 29,216 ms | 27,859 ms | 30,707 ms | 29,000 ms | 29,000 ms | 31,000 ms | 31,000 ms | 31,000 ms |
+| POST | /api/v1/query [warm] | 53 | 0 | 22,272 ms | 10,951 ms | 42,119 ms | 21,000 ms | 26,000 ms | 28,000 ms | 41,000 ms | 42,000 ms |
+| server_latency | server [cold] | 5 | 0 | 29,210 ms | 27,853 ms | 30,692 ms | 29,000 ms | — | — | — | — |
+| server_latency | server [warm] | 53 | 0 | 22,269 ms | 10,950 ms | 42,117 ms | 21,000 ms | — | — | — | — |
+
+**req/s (warm): 0.18 | error rate: 0%**
+
+**Analysis:**
+- Warm p50 21s — 6s above the <15s single-user spec target
+- HTTP round-trip and server_latency are identical — network overhead is zero; all time is inside the pipeline
+- Single-user warm p50 was 4.1s (EXP-013); under 5 concurrent users it degrades ~5× to 21s
+- Root cause: mlx_lm.server processes LLM requests serially. With 5 users and ~5s synthesizer per request, a user at the back of the queue waits up to 4 × 5s = 20s before their inference starts
+- p95 spike to 41s is worst-case queue depth — a user arrives when all 4 others are mid-inference
+- 0% error rate — pipeline is stable under concurrent load; latency degrades gracefully, no crashes
+
+---
+
+> ### Note — Concurrency Bottleneck: Root Cause and Solutions
+>
+> Unlike vLLM, which was built from day one for high-concurrency continuous batching, the standard `mlx_lm.server` has historically been strictly sequential. The 21s warm p50 is **queue-induced latency**, not pipeline latency — the pipeline itself is 4.1s. There are several ways to address this:
+>
+> #### Option 1 — vllm-mlx (continuous batching on Apple Silicon)
+>
+> Switch to `vllm-mlx` to get continuous batching on the M4 Pro. Instead of processing 5 users one-by-one (4.1s × 5 ≈ 20s), the GPU processes tokens for all users in a single pass of the model weights — total time becomes roughly 6–8s for everyone, because the hardware is finally being fully utilised.
+>
+> #### Option 2 — vLLM tuning (if using vLLM)
+>
+> **Step 1 — Throttle concurrency (`--max-num-seqs`).**
+> Tell vLLM the hardware limit explicitly. Adding `--max-num-seqs 2` forces users 4 and 5 into a waiting queue. It is better for a user to wait 3s for their turn and get a 4s response (7s total) than for all 5 users to share a 21s response simultaneously.
+>
+> **Step 2 — Enable chunked prefill.**
+> When a new user joins the batch, processing their full "New Orleans review" context (the prefill phase) normally pauses token generation for existing users. `--enable-chunked-prefill` (default on in vLLM 0.6.0+) breaks the context into small chunks so it does not freeze streaming text for other users.
+>
+> #### Option 3 — Response caching
+>
+> **Impact: extreme for the load test, modest for reality.**
+> Since the load test uses 10 fixed questions, exact-match caching drops latency to <10ms for ~90% of requests after the first pass. This demonstrates production optimization awareness but is effectively a benchmark cheat code — real users ask infinite variations.
+> For real-world gains, a **semantic cache** (embed the query, retrieve similar past answers above a cosine threshold via RedisVL or GPTCache) generalises beyond exact matches. Worth adding as a clearly-labelled optimisation layer.
+>
+> #### Option 4 — Horizontal scaling (replicated deployment)
+>
+> Running two `mlx_lm.server` instances behind a round-robin load balancer halves queue depth and cuts warm p50 from ~21s to ~11s. This is the standard production pattern:
+>
+> - **Orchestrator** (Kubernetes/Docker Swarm) — automatically spins up N replicas of the model server in response to traffic
+> - **Load balancer** (Nginx/HAProxy) — routes each request to the least-busy instance
+> - **Shared storage** — all instances read from the same SQLite + ChromaDB so the experience is consistent
+>
+> At data-centre scale, NVIDIA MIG (Multi-Instance GPU) is the hardware-level equivalent — a single H100 sliced into up to 7 virtual GPUs, each running its own model instance.
+>
+> **Continuous batching vs two servers — why not always batch?**
+> A single well-tuned batcher is 10–20% more efficient than two separate instances. However, two instances provide a "firewall": a malicious or crash-inducing prompt kills one instance, not the whole service. Sometimes the simple fix (two servers) is operationally safer than a sophisticated batching scheduler.
+>
+> **For this demo:** Option 3 (caching) is the fastest to implement and the most visible to a reviewer. Option 4 (two instances) is the most realistic production story.
+>
+> **What we observed (EXP-017):**
+>
+> **Why the p99s plummeted (The Success)**
+> Adding a second server doubled the queue capacity. In the single-server test, the 4th and 5th users were stuck behind a massive wall of sequential processing, causing 40s+ spikes. With two servers, the queue depth for any single instance rarely exceeded 2 users — eliminating the Head-of-Line Blocking that caused those catastrophic delays. p95: 41s → 26s (-37%), p99: 42s → 28s (-33%).
+>
+> **Why the p50 stalled (The Hardware Reality)**
+> A 10% gain on p50 (21s → 19s) is far below the 50% we expected. This reveals that the bottleneck isn't just software queue wait time — it's the shared memory bus. The M4 Pro has ~273 GB/s of memory bandwidth. When Instance A and Instance B both read 4.5GB of model weights to generate a token at the same time, they fight for that bandwidth. Even though they aren't waiting for each other in a software queue, they are slowing each other down at the silicon level.
+
+---
+
+## EXP-017 — Two mlx_lm.server instances + round-robin proxy
+**Date:** 2026-04-24
+**Change:** Added `benchmarks/llm_proxy.py` — a FastAPI reverse proxy on port 8003 that round-robins requests across two `mlx_lm.server` instances on ports 8001 and 8002. `LLM_BASE_URL` in `.env` pointed at the proxy. Both model instances: `mlx-community/Qwen2.5-7B-Instruct-4bit`.
+
+**Results vs EXP-016 (single server):**
+
+| Metric | EXP-016 (1 server) | EXP-017 (2 servers) | Delta |
+|---|---:|---:|---:|
+| warm p50 | 21,000 ms | 19,000 ms | -10% |
+| warm avg | 22,272 ms | 17,790 ms | -20% |
+| warm p75 | 26,000 ms | 22,000 ms | -15% |
+| warm p95 | 41,000 ms | 26,000 ms | **-37%** |
+| warm p99 | 42,000 ms | 28,000 ms | **-33%** |
+| warm max | 42,119 ms | 28,136 ms | -33% |
+| warm min | 10,951 ms | 6,495 ms | -41% |
+| error rate | 0% | 0% | — |
+
+**Full percentile breakdown (warm):**
+
+| p50 | p66 | p75 | p80 | p90 | p95 | p98 | p99 | p100 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 19,000 | 20,000 | 22,000 | 22,000 | 26,000 | 26,000 | 28,000 | 28,000 | 28,000 |
+
+**Analysis:**
+- p50 improvement is modest (21s → 19s, ~10%) — Apple Silicon unified memory means both instances share the same MPS GPU pipeline; inference per request slows slightly as they compete for the same hardware
+- Tail latency improvement is significant: p95 drops from 41s → 26s (-37%), p99 from 42s → 28s (-33%) — reduced queue depth per server wins at the tail even when per-request inference is slightly slower
+- The max worst-case drops from 42s → 28s — the "full queue depth" scenario is less severe with two backends
+- This is not the 2× throughput you'd get with truly independent hardware (e.g., two discrete GPUs or two separate machines), but a real and measurable improvement — particularly for user experience where tail latency matters most
+- Cold latency increased (29s → 36s) — both instances loading simultaneously compete for GPU memory bandwidth during warmup
+- Architecture validated: proxy routing is correct (all 200 OK, 0% error rate)
