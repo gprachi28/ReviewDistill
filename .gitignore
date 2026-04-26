@@ -12,6 +12,7 @@ design.md
 doc.understand.md
 plan.md
 docs/superpowers/
+design/
 ingestion/checkpoint_sql.pkl
 ingestion/checkpoint_nola.pkl
 *.db
