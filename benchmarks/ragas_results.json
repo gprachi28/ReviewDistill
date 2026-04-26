@@ -1,5 +1,5 @@
 {
-  "judge": "gemini-2.0-flash",
+  "judge": "gemini-2.5-pro",
   "results": [
     {
       "question": "bachelor party spot, loud, handles large groups",
@@ -18,7 +18,7 @@
         "Pretty cool bar just off of bourbon street.  They have a few different rooms such as their main bar (which was dead), the back patio (which was bumping with drunkards soaking up the sun), and your dimly lit piano bar which had two ladies bumping requested tunes.  \n\nDo order their Hurricane here.  It will knock your socks off.\nDon't order anything else besides that or beer.  I ordered an old-fashioned (wtf was I thinking?) and the bartender threw some crap together that reminded me of college.  He even used his bare hands to rip the orange meat off an orange slice just for the peel.  I just hoped he washed his hands ...\n\nAnyways, the dueling pianos was a blast.  The crowd was mixed, including your bachelorette party, older seniors slamming down a few hurricanes, drunk frat boys pounding beers, and your standard 30's people like my wife and I.  However, everyone was having a super fun time which was awesome.\n\nBathrooms are really dingy but what do you expect?\n\n4 stars!",
         "GREAT food for a drunken fix! \nLove ZACHARY- he's the bar tender that served my bachelorette party! He was super kind, polite, and attentive. Thanks for a great experience. \nrecommend the GUMBO! They serve it with okra which was so Delish!"
       ],
-      "faithfulness": null
+      "faithfulness": 0.5625
     },
     {
       "question": "cheap brunch place with outdoor seating",
@@ -33,7 +33,7 @@
         "The menu here is amazing.  I had the Eggs Cochon which was a little strong but tasty.  The biscuit was not overcooked and the eggs were perfect. Each portion of the dish stood on its own.  On weekends,  it seems an employee is posted near the hostess to provide mimosas and other brunch cocktails to waiting customers.   The cocktails were mostly sparkling wine with little to no mixer and SERVED IN Dixie cups.   I'm paying $60 for bunch, your mimosa should be served in a flute.  Servers are a little slow.  The seating area is clean and well-lit.",
         "Enjoyed a nice breakfast here one morning. We were staying at the Roosevelt so it was a very close walk from the hotel.  It is a pretty popular breakfast spot, especially on the weekends so we had to wait 30 minutes for the table but luckily it was a gorgeous day so we didn't mind the wait.  Once seated, we ordered our drinks.....it was brunch on a Sunday so there is nothing better than a mimosa.  What I especially liked about the mimosa's here are that there was 4 different options with various juices.  I chose the mimosa with fresh berry juice, it was good!  I also ordered the french toast which was your standard french toast, nothing amazing however still good."
       ],
-      "faithfulness": null
+      "faithfulness": 0.3333333333
     },
     {
       "question": "jazz brunch with live music",
@@ -50,7 +50,7 @@
         "Come to jazz brunch with at least 2 hours- it's packed, but the music and atmosphere is worth it!\n\nThis Sunday morning, there were 2 super women serving this back room with red walls and a little stage. These women hostesses, bartended, and served a room of 50+ guests. I hope Buffa's owner considers giving these lovely women a break, and giving customers a chance to eat in less than 2 hours.\n\nThe food is very cheap, and very okay. For $9, i had a tasty homemade biscuit with 2 poached eggs and hash browns. The hash browns serving was very crispy and very small. Coffee is solid and only $1.5.\n\nThe music was excellent. An 8 piece jazz band that has such a lovely flair. \n\nPro tip: come in after 1pm. The band was still playing and the place is much less crowded.",
         "Live Oak has become my favorite brunch place Uptown.  The huevos rancheros are what keep me coming back, but I am a big fan of their creamy, cheesy grits too.  I also appreciate that they accommodate those on a vegetarian diet by subbing avocado for meat in their dishes.  Their coffee, from French Truck, is top notch too.  The staff all seem to be hardworking, fun people who check on the customers regularly, especially to make sure said coffee is refilled.  Grant waited on us the last time and made us laugh.  And of course there's the live music, which is an added bonus at brunch."
       ],
-      "faithfulness": null
+      "faithfulness": 0.5833333333
     },
     {
       "question": "late-night Cajun food after a show on Frenchmen Street",
@@ -67,7 +67,7 @@
         "The original Pierre Maspero's is a great location to sampled some of New Orleans Cajun cuisine in the Big Easy.\n\nIt has large doors that open onto the tourist filled streets of the French Quaters. It is in an older building like much of the downtown area, with brick walls and gaslighting. There is an older handcrafted wooden staircase next to the bar which leads to the second floor, it is unique and shows how the structures were constructed in the olden days. \n\nCheck in using your Yelp app and you will likely get a free appetizer with the order of two entrees.\n\nWe try the BBQ shrimp appetizer shrimp served in a Buttery Cajun sauce and some bread. It was very tasty. This was a 13 or $14 appetizer which was free after checking in to Yelp. What a deal!\n\nThe blacken jambalaya was excellent and hit the spot. It was not too spicy, seasoned just right. The BLT chicken sandwich had a different spice on it... perhaps rosemary and was not as tasty as the blackened chicken.\n\nOverall this is a great place To enjoy lunch or dinner in the French Quarters, relax your feet and enjoy the sites.\n\nFor a beer selection we tried Abita the boot which was light crisp and tasty. The large size is 24 oz and only $2 more than the small.",
         "We just stumbled upon really good Cajun food and cocktails in the heart of the French quarter! We ordered Cajun blackened chicken with fettuccine Alfredo and blackened shrimp jambalaya! I had the perfect storm cocktail and my husband had the hurricane. Shelly was our waitress and she was a hoot and really quick to get you what we needed even though it was a packed house!"
       ],
-      "faithfulness": null
+      "faithfulness": 0.8823529412
     },
     {
       "question": "family-friendly seafood place with parking",
@@ -81,7 +81,7 @@
         "Seafood restaurant on Bourbon St.  Fast friendly service. This was a spur of the moment choice, the alcohol and tireless walking had set it. The restaurant was packed, but we were sat rather quickly.\n\nChicken and Sausage gumbo- it had a very nice texture to the soup- not too watery and not too thick like gravy. The pepper overtones kind of took over the dish, but overall quite satisfying. \n\nOysters, bacon bits, and cheese. - was a bit of disappointment. On the dry side. Hardly any bacon on the oysters. C-minus at best. \n\nOverall it's a Good place or a quick bite.",
         "It is a very clean, modern and spacious restaurant. Came in a group for lunch, service was very attentive, it seems they have good alcoholic drinks but I cannot drink any of those :-( We ordered a bunch of items from their lunch menu: lobster Mac n cheese, grilled gulf fish, chicken sandwiches. Food came out quickly and together for all the people which is amazing! My gulf fish tastes ok, not too impressive, I mean, the fish is really thin and seems to be over-grilled, and the rice is basically soaked in olive oil for some reason. The grilled veggies are really good though. My husband likes the chicken sandwiches also. Other friends said their lobster Mac N cheese are good, even though the lobsters are too small to locate lol. Generally a nice place to hung out. Nice environment, ok food, and reasonable prices (each lunch item entree is only around 15 bucks)."
       ],
-      "faithfulness": null
+      "faithfulness": 0.5454545455
     },
     {
       "question": "quiet romantic date spot",
@@ -98,7 +98,7 @@
         "We returned to Langlois for another fabulous date night!   Interactive dining at its best!    We have been here several times and each visit is better than the last.   The staff is attentive and courteous, anticipating our needs but not intrusive at all.   We are almost on a first name basis with everyone there!   Each time we visit,  our participation in the food preparation is different and we are always pleasantly surprised with how much we learn.   We love that the menu is seasonal and,  being a farmer's daughter,  the farm to table menu suits me perfectly.   Very inexpensive for a five or six course dinner (I lost count) along with wine pairings and bubbly!   Thanks, Chef Amy and Chef Tess, for a delightful time!  We'll be back!",
         "Had cocktails at the bar prior to Xmas Eve Dinner at G.W. Finns. Sam the bartender was fantastic and we trusted his judgment on everything. Ask for The Hibiscus."
       ],
-      "faithfulness": null
+      "faithfulness": 0.3333333333
     },
     {
       "question": "outdoor patio restaurant with a full bar",
@@ -114,7 +114,7 @@
         "Been here over a dozen times, I love the vibe and the staff. Inside is always fun and lively, whereas the back patio is a bit more toned down and relaxing. You can sit outside under the lights and just hang out or go inside and get a little loud. They have pool, darts, and some egambling as well. Love this bar and love its location!",
         "Ok, I *know* this is a tourist trap. But whatever, I love it. The outdoor patio is absolutely heaven on a beautiful night. The drinks are big and delicious, the atmosphere is energetic but cheerful and comfortable, and people are just happy here! One night we were here we met an awesome couple from Penn. and sat chatting with them like old friends for quite a while before moving on to another location. That's the type of place it is. My only minor complaint is that it is kind of annoying that they automatically charge you for the glass when you order one of their special drinks (the hurricane, the rainstorm, etc.). Yes, I know most people will take home at least one glass, but then it's annoying to have to bring ones you don't want over to the bar to get refunded for the extra charge."
       ],
-      "faithfulness": null
+      "faithfulness": 0.9
     },
     {
       "question": "dog-friendly restaurant with a patio",
@@ -127,7 +127,7 @@
         "Love that this restaurant is in a dog friendly hotel and thus dog friendly by virtue. They have seating so you can sit with your pet outside of the restaurant but at the bar, just case someone doesn't want to sit beside a dog. Service is top notch and food is great and reasonably priced. I've had the Benedict's and this last time had the oyster log. Amazing price and delish. You get a total of 18 oysters. So good. I will be back!",
         "If I could give it 6 stars, I would. Reservations usually aren't needed, but on Yelp it said they allowed pets, so I made a reservation through OpenTable and noted that we have a small dog. I received a call from the host who informed me that only applied to service animals, but she offered to set up seating on the patio for us and the dog. The patio had an awning and it rained hard but was still in the 70s. We had the gumbo, the blue crab bisque, a shrimp entree and mahi mahi. For dessert it was beignets and peach cobbler. Everything was spectacular. Our server was the most attentive server I have ever had...which is especially great when you're the only party on the patio and servers sometimes forget about them. Ours was Johnny on the spot. We were on a long trip across the country and had been doing a fair bit of fast food and takeout, so it was nice to have a great dining experience."
       ],
-      "faithfulness": null
+      "faithfulness": 0.0
     },
     {
       "question": "upscale dinner spot that takes reservations",
@@ -145,7 +145,7 @@
         "I'd never been escorted to the ladies room in my life, I kinda liked it.\n\nI called in on Saturday afternoon for dinner reservations for the same evening. Thankfully, we were able to get a reservation for Saturday night  for dinner for 2 at 6:00 PM because they had a cancellation. \n\nService is great! Awesome receiving line as you enter the restaurant. They sat us in the Garden Room, which feel like you're sitting in the tree tops. We were able to watch the sun set from up there. It was beautiful.  The staff were super attentive, polite and courteous. I had the gumbo of the day, lamb shank and bread pudding for dessert.  My sister had a side of spinach, fillet Mignon and strawberry shortcake for dessert.  Everything was delicious. \n\nSave some extra cash if you're going to have dinner here, it's worth it.",
         "Came here for a nice dinner with my wife. If I could give it a 3.5 stars I would. When I came here, this place had 4 stars which is why I chose it, based on the reviews from others. But I don't think it lived up to 4 stars. \n\nWe got there fairly late on a Tuesday night around 8 or so and there were clearly open tables. The hostess asked if we had reservations, which we didn't. She explained almost secretly that they only seat people after they've made reservations, so we stepped out looked them up and made a reservation for 5 mins later on the Open Table App. It wasn't a big deal and at least the hostess was nice enough to let us in on \"the secret\" but I almost left for that reason.  Just seems to me that you wouldn't want to inconvenience a potential customer? I'm not going to beg you to take my money for an overpriced meal. But maybe they do this so that they get a certain type of customer, ones that are used to making reservations for nicer places to eat? I'm not sure but again seems like a bad business practice. \n\nSo for the actual meal. The dining room was decorated very nicely and it's definitely a classy place, which is good because that's what I wanted for date night with my wife. I ordered a cocktail, Whiskey and Waterloo. It was awesome maybe my favorite cocktail yet. I was undecided, between that and another whiskey cocktail so I asked the waiter and he gave me a good recommendation.  I love crab cakes so we ordered that as an appetizer. It tasted delicious and was very nicely garnished. But it was just barely warm. I would say it felt like just above room temperature. I've worked in a restaurant so I understand that stuff happens, not everything can be piping hot right out of the pan and the wait staff only has so many hands. And at nicer places chefs/cooks don't want their food sitting under heat lamps. So I gave them the benefit of the doubt. I ordered their Pompano Ponchartrain and my wife had the Fillet Mignon. And when they brought out entrees out, the same thing again. Food was only warm. Again both tasted great. If I went back I wouldn't get the pompano again. It was good but nothing incredible. My wife said the Fillet was great, she doesn't get seafood very often so she would probably order it again. \n\nOverall, nice place, good wait staff, great cocktail, food tasted good but was just barely warm when served. I went with a 4-star expectation and it undelivered just slightly."
       ],
-      "faithfulness": null
+      "faithfulness": 0.3636363636
     },
     {
       "question": "happy hour bar with TVs to watch sports",
@@ -163,7 +163,7 @@
         "Fun, interactive dinner! Our server Dhavis walked us through the menu, answered our questions, showed us how to use the grill, and really enriched our experience!!! Food was great, drinks were crazy strong! I highly recommend going during happy hour for their version of the long island iced tea ($5 and will get you stumblin'). Asking for Dhavis as your server is a MUST!! He sets the tone and tops off a wonderful meal with a positive, professional, and engaging demeanor!",
         "This is a great place to meet up with friends for happy hour b/c there are a variety of foods and drinks.  Plenty of space and the music was jamming.  The Harvest Moon bourbon cocktail is delicious.  If you like rosemary try this.  Street tacos and pepperoni pizza were perfect for happy hour!"
       ],
-      "faithfulness": null
+      "faithfulness": 0.5
     },
     {
       "question": "BYOB place with casual attire",
@@ -181,7 +181,7 @@
         "Great little place. All the drinks I have tried (regular coffee, ice coffee, chai tea, matcha frap) are great. Staff is friendly. The monkey theme is cute, and they even have a banana shaped pillow on the couch!",
         "Recommended to me by a friend from Buckhead GA (RIP Tom) that said it suited my personality.  After eating there I took it as an compliment.  A relaxed, eclectic atmosphere situated inside a house with an enclosed air conditioned deck that serves as an extra dining area.\n\nThey serve your basic rustic French menu but separate themselves from other French restaurants by excelling in the preparation and presentation of the classics and the daily specials with out the pomp and circumstances.... in short: No Formal Wear Required - BUT you can consider this a strong contender for a special evening or date night, and that's a nice combination for a guy who's looking to impress his date without having to dress."
       ],
-      "faithfulness": null
+      "faithfulness": 0.0
     },
     {
       "question": "bachelorette dinner, upscale vibes, good for large groups",
@@ -201,7 +201,7 @@
         "We made reservations in advance in honor of our bachelorette.   Upon arrival, our table had flowers and confetti, with a personalized menu congratulating her (along with complementary dessert later). \nThe service was terrific and highly attentive.  We enjoyed our meals and fantastic drinks.\n I loved the scallops with mushroom risotto.  Absolutely decadent!\nGW Fins was the perfect restaurant to celebrate our big occasion! I highly recommend it",
         "My best girl friends took me here for our fancy dinner night out during my bachelorette last summer, and it was a classy affair of delicious food and drinks, accompanied with fantastic service. \n\nMust order/try:\n* LOBSTER DUMPLINGS\n* SCALIBUT\n\nAfter so many months, I am still gushing about this memorable meal. The lobster dumplings were meaty with the most delicate wonton skin where each bite just melted in my mouth. The scalibut blew our minds away with its perfectly seared scallop crust over a normally mild white fish. It was served with creamy LOBSTER risotto that paired so very well with the fish. The girls and I are from Boston --home of some pretty damn good lobster dishes-- but now I'm starting to think otherwise...\n\nMy husband also had his bachelor party in NOLA in the fall, and being good boys, they took our recommendation and had an equally excellent dinner at GW Fins.\n\n+1 star for a personalized keepsake menu and glitter confetti on our table to make us feel extra special :)"
       ],
-      "faithfulness": null
+      "faithfulness": 0.6428571429
     },
     {
       "question": "wheelchair accessible restaurant that caters events",
@@ -215,7 +215,7 @@
         "I worked with Justin to arrange a large cocktail style reception for over 30 guest. He was extremely accommodating, the setting was lovely, the drinks and food were delicious, and the service (especially Cindy) was incredibly attentive and kind. Thank you for putting up with our party! Couldn't have been better. \n\nPS: the ribs are deep fried, and you want them in your life.",
         "Cane and Table has always been one of my husband and I's favorite cocktail bars. So when it was time to plan our wedding, it was one of the first places we called. This past weekend, we had our wedding reception upstairs in their new event space. Our guests were raving about the service, food and specialty cocktails. The staff was so friendly and helpful in planning, setting up and executing the event. We really couldn't have been happier with how everything turned out. I'd highly recommend to anyone looking to throw an impressive event with great food and drinks. Thanks so much to Leila and the rest of the Cane and Table team for making our day so fun and stress free."
       ],
-      "faithfulness": null
+      "faithfulness": 0.8
     },
     {
       "question": "dressy dinner spot with live music",
@@ -231,7 +231,7 @@
         "Normally, I would find myself on the other side of the velvet ropes at places like this, but a friend \"put me on the list\" to see her girlfriend's jazzy lounge band, Soulkestra, play a few sets.  So I have visited the Foundation Room three times, and surprisingly I was able to set aside the anti-elitist hang-ups that accompany my low birth and actually enjoy myself there.  \n\nIn fact, it was not until my third visit that I learned during a conversation with one of the paying members that this was actually a private venue.  I just assumed it was HOB's attempt at an \"intimate jazz venue.\"  While I would not pay money to purposefully seclude myself in a private bar, as my life is thankfully devoid of paparrazi and hangers-on, I can certainly see the appeal.  The barmen are pros, the drinks are properly stiff, and there is a stairway leading to a private-access balcony overlooking the HOB main stage.  \n\nThe lounge's decor is wall-to-wall neo-opium den chic, complete with a replica \"Reclining Buddha\" statue on the hearth of the artificial fire.  There are plush couches and lounge chairs and even a bottle-service area that I assume is an anti-malarial quarantine because its semicircular booth is partitioned with mosquito netting.  Most impressive to me, however, was the carpeting, which a manager explained to me was actually not carpeting per se but dozens and dozens of Persian rugs stitched together to cover the entire lounge.\n\nThere is typically a pretty constant stream of mini-skirted \"woo girls\" and the untucked-oxford shirted men that tend to surround them.  If that's your thing, well go get em, tiger, but you'll have to plunk down the coin.  As for me, I'll just enjoy a couple gin drinks and some good music in this cool, relaxing lounge.  3.5 rounded up.",
         "Outstanding atmosphere.  Small quiet dining room right outside a very classy but eclectically decorated live music bar to enjoy before dinner.  \n\nGreat food and service."
       ],
-      "faithfulness": null
+      "faithfulness": 0.5625
     }
   ]
 }
