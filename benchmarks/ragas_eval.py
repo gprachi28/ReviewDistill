@@ -15,15 +15,23 @@ Judge model:  gemini-2.5-flash via Google's OpenAI-compatible endpoint
               (requires GEMINI_API_KEY in .env)
               RAGAS faithfulness requires structured JSON output (claim
               decomposition + per-claim verdicts). Local 7B models do not
-              reliably follow the required schema. Gemini 2.0 Flash is the
+              reliably follow the required schema. Gemini 2.5 Flash is the
               minimum reliable judge for this metric.
 Generator:    mlx-community/Qwen2.5-7B-Instruct-4bit on port 8001
               (via settings.llm_base_url)
+
+Rate limiting:
+  Samples are evaluated one at a time (not batched) with INTER_SAMPLE_SLEEP
+  seconds between calls to avoid flooding the Gemini API. Each sample
+  triggers two LLM calls inside RAGAS (claim extraction + verdict). On
+  Gemini paid Tier 1 (1000 RPM) this is well within limits; the sleep is
+  a conservative guard for burst protection.
 
 Persistence:
   benchmarks/ragas_samples.json  — Qwen pipeline outputs, saved after each
                                    query. Re-run skips Step 1 if file exists.
   benchmarks/ragas_results.json  — Final per-query faithfulness scores.
+                                   Saved incrementally — safe to interrupt.
 
 Run:
     Terminal 1: .venv/bin/mlx_lm.server --model mlx-community/Qwen2.5-7B-Instruct-4bit --port 8001
@@ -37,6 +45,7 @@ import argparse
 import json
 import math
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, ".")
@@ -52,7 +61,13 @@ from benchmarks.query_eval import EVAL_CASES
 from config import settings
 
 JUDGE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-JUDGE_MODEL = "gemini-3-flash-preview"
+JUDGE_MODEL = "gemini-2.5-pro"
+
+# Seconds to wait between per-sample judge calls — guards against 429 bursts.
+# Two LLM calls per sample (claim extraction + verdicts), so effective rate
+# is 2 calls / (eval_time + INTER_SAMPLE_SLEEP). At 3s sleep this is well
+# under Gemini Tier 1's 1000 RPM ceiling.
+INTER_SAMPLE_SLEEP = 3
 
 SAMPLES_PATH = Path("benchmarks/ragas_samples.json")
 RESULTS_PATH = Path("benchmarks/ragas_results.json")
@@ -64,7 +79,6 @@ FB_CASES = [c for c in EVAL_CASES if c.expected_intent == "find_businesses"]
 
 def collect_samples() -> list[dict]:
     """Run each query through the pipeline and save results incrementally."""
-    # Resume from existing file if partially complete
     if SAMPLES_PATH.exists():
         existing = json.loads(SAMPLES_PATH.read_text())
         done_questions = {s["question"] for s in existing}
@@ -105,46 +119,97 @@ def collect_samples() -> list[dict]:
     return samples
 
 
-def run_judge(samples: list[dict]) -> None:
-    """Run RAGAS faithfulness eval and save results."""
-    dataset = Dataset.from_list(samples)
-
-    judge_llm = ChatOpenAI(
+def make_judge_llm() -> ChatOpenAI:
+    """Build the Gemini judge LLM with retry/backoff for 429s."""
+    return ChatOpenAI(
         model=JUDGE_MODEL,
         base_url=JUDGE_BASE_URL,
         api_key=settings.gemini_api_key,
         temperature=0.0,
+        # LangChain's built-in tenacity retry handles 429 RateLimitError
+        # with exponential backoff automatically when max_retries > 0.
+        max_retries=6,
     )
+
+
+def run_judge(samples: list[dict]) -> None:
+    """Evaluate faithfulness one sample at a time with sleep between calls."""
+    # Resume from partial results if interrupted mid-run
+    if RESULTS_PATH.exists():
+        existing_results = json.loads(RESULTS_PATH.read_text())
+        done_questions = {r["question"] for r in existing_results.get("results", [])}
+        all_records = existing_results.get("results", [])
+        print(f"  Resuming judge — {len(done_questions)} results already saved.")
+    else:
+        done_questions = set()
+        all_records = []
+
+    judge_llm = make_judge_llm()
+    # One sample at a time — prevents RAGAS from batching all 14 into a
+    # single async burst that exhausts the per-minute quota.
+    run_config = RunConfig(timeout=120, max_retries=6, max_wait=60, max_workers=1)
 
     print("=" * 65)
     print(f"Step 2 — RAGAS faithfulness eval (judge: {JUDGE_MODEL})")
+    print(f"         {len(samples)} samples · {INTER_SAMPLE_SLEEP}s sleep between calls")
     print("=" * 65)
 
-    run_config = RunConfig(timeout=300, max_retries=2, max_wait=60, max_workers=1)
-    result = evaluate(dataset, metrics=[faithfulness], llm=judge_llm, run_config=run_config)
+    for i, sample in enumerate(samples, 1):
+        q = sample["question"]
+        if q in done_questions:
+            print(f"  [{i:02d}/{len(samples)}] SKIP (already scored)  {q[:55]}")
+            continue
 
-    df = result.to_pandas()
+        print(f"  [{i:02d}/{len(samples)}] Scoring…  {q[:55]}")
+        try:
+            result = evaluate(
+                Dataset.from_list([sample]),
+                metrics=[faithfulness],
+                llm=judge_llm,
+                run_config=run_config,
+            )
+            df = result.to_pandas()
+            record = json.loads(df.to_json(orient="records"))[0]
+        except Exception as exc:
+            print(f"           ERROR: {exc}")
+            record = {"question": q, "answer": sample["answer"], "faithfulness": None}
 
-    # Save results — use pandas JSON export to handle numpy types (ndarray, float32, etc.)
-    records = json.loads(df.to_json(orient="records"))
-    RESULTS_PATH.write_text(json.dumps({"judge": JUDGE_MODEL, "results": records}, indent=2))
-    print(f"\nResults saved to {RESULTS_PATH}")
+        score = record.get("faithfulness")
+        if score is None or (isinstance(score, float) and math.isnan(score)):
+            print(f"           → N/A (failed)")
+        else:
+            bar = "█" * int(score * 20)
+            print(f"           → {score:.2f}  {bar}")
+
+        all_records.append(record)
+        # Save after every sample so a crash doesn't lose prior work
+        RESULTS_PATH.write_text(
+            json.dumps({"judge": JUDGE_MODEL, "results": all_records}, indent=2)
+        )
+
+        if i < len(samples):
+            time.sleep(INTER_SAMPLE_SLEEP)
+
+    # Final summary
+    valid_scores = [
+        r["faithfulness"] for r in all_records
+        if r.get("faithfulness") is not None and not math.isnan(r["faithfulness"])
+    ]
+    mean = sum(valid_scores) / len(valid_scores) if valid_scores else float("nan")
 
     print("\nPer-query scores:")
     print("─" * 65)
-    for _, row in df.iterrows():
-        score = row.get("faithfulness", float("nan"))
-        if math.isnan(score):
-            print(f"  {row['question'][:52]:<54}  N/A  (failed)")
+    for r in all_records:
+        score = r.get("faithfulness")
+        if score is None or math.isnan(score):
+            print(f"  {r['question'][:52]:<54}  N/A")
         else:
             bar = "█" * int(score * 20)
-            print(f"  {row['question'][:52]:<54}  {score:.2f}  {bar}")
-
-    valid = df["faithfulness"].dropna()
-    mean = valid.mean()
+            print(f"  {r['question'][:52]:<54}  {score:.2f}  {bar}")
     print("─" * 65)
-    print(f"  Mean faithfulness: {mean:.3f}  ({len(valid)}/{len(df)} queries scored)")
+    print(f"  Mean faithfulness: {mean:.3f}  ({len(valid_scores)}/{len(all_records)} queries scored)")
     print(f"  Judge: {JUDGE_MODEL}")
+    print(f"\nResults saved to {RESULTS_PATH}")
 
 
 def main() -> None:
