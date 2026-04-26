@@ -6,7 +6,7 @@ A conversational restaurant assistant for New Orleans. Ask natural language ques
 
 ---
 
-## Demo
+## Demo [UI designed with Claude]
 
 https://github.com/user-attachments/assets/1adddbe5-e89d-4fac-9d1d-1296b5124cd1
 
