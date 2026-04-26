@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     embed_dimensions: int = 256
     sqlite_path: str = "./yelp_reviews.db"
     session_ttl: int = 1800  # 30 minutes in seconds
+    gemini_api_key: str = ""
 
 
 settings = Settings()
