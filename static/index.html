@@ -3,237 +3,303 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NOLA AI — New Orleans Restaurant Assistant</title>
+  <title>NOLA AI — Sunset Bayou</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:          #1C1917;
-      --bg2:         #292524;
-      --bg3:         #1C1917;
-      --border:      #44403C;
-      --border2:     #57534E;
-      --text:        #FAFAF9;
-      --text2:       #A8A29E;
-      --text3:       #78716C;
-      --accent:      #F59E0B;
-      --accent-dim:  rgba(245,158,11,0.15);
-      --accent-bdr:  rgba(245,158,11,0.35);
-      --accent-glow: rgba(245,158,11,0.08);
-      --user-bg:     rgba(245,158,11,0.1);
-      --user-bdr:    rgba(245,158,11,0.25);
-      --red:         #F87171;
-      --green:       #34D399;
-      --blue:        #93C5FD;
+    html, body { height: 100%; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      background: #FFF4E6;
+      color: #3A2417;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
     }
 
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 14px; }
-    body { display: flex; flex-direction: column; }
+    /* ── Design tokens ─────────────────────────────────────── */
+    :root {
+      --bg:          #FFF4E6;
+      --bg2:         #FFFDF7;
+      --bg3:         #FFFDF7;
+      --panel:       #FBE6CF;
+      --border:      #E9C9A6;
+      --border2:     #D9A876;
+      --text:        #3A2417;
+      --text2:       #7A5236;
+      --text3:       #A8845E;
+      --accent:      #E25C3F;
+      --accent-deep: #C44424;
+      --accent-dim:  #FFE3CC;
+      --accent-bdr:  #F4A57A;
+      --accent-glow: rgba(226,92,63,0.18);
+      --user-bg:     #FFD7BA;
+      --user-bdr:    #F4A57A;
+      --green:       #2A8C7B;
+      --red:         #C44424;
+      --blue:        #1F6F8B;
+      --console-bg:  #F7E4C8;
+    }
+
+    /* ── Keyframes ──────────────────────────────────────────── */
+    @keyframes blink  { 50% { opacity: 0; } }
+    @keyframes bob    { 0%,100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-4px) rotate(2deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Scrollbars ─────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(122,82,54,0.25); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(122,82,54,0.4); }
 
     /* ── Header ─────────────────────────────────────────────── */
     header {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 24px; flex-shrink: 0;
-      background: linear-gradient(135deg, #292524 0%, #1C1917 100%);
-      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px 28px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--bg2) 0%, var(--panel) 100%);
+      border-bottom: 1.5px solid var(--border);
+      position: relative; overflow: hidden;
     }
-    .logo {
-      width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
-      background: linear-gradient(135deg, #F59E0B, #D97706);
+    .scatter {
+      position: absolute; inset: 0; pointer-events: none; opacity: 0.55;
+    }
+    .scatter img { position: absolute; }
+    .logo-disc {
+      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      background: var(--user-bg); border: 2px solid var(--accent);
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px; font-weight: 700; color: #1C1917;
-      box-shadow: 0 0 12px rgba(245,158,11,0.3);
+      box-shadow: 0 4px 0 var(--accent-deep);
+      transform: rotate(-3deg);
     }
-    .header-text { display: flex; flex-direction: column; gap: 1px; }
-    .app-name { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
-    .app-sub  { font-size: 11px; color: var(--text3); letter-spacing: 0.02em; }
+    .logo-disc img { animation: bob 2.4s ease-in-out infinite; display: block; }
+    .header-text { display: flex; flex-direction: column; gap: 2px; position: relative; }
+    .app-name {
+      font-family: 'Caveat', cursive; font-weight: 700;
+      font-size: 24px; letter-spacing: 0.01em; color: var(--text); line-height: 1.0;
+    }
+    .app-sub { font-size: 13px; color: var(--text3); letter-spacing: 0.02em; font-style: italic; }
 
-    /* ── Body ───────────────────────────────────────────────── */
+    /* ── Body layout ────────────────────────────────────────── */
     .body { display: flex; flex: 1; overflow: hidden; }
-
-    /* ── Chat panel ─────────────────────────────────────────── */
     .chat { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
 
+    /* ── Messages area ──────────────────────────────────────── */
     #messages {
-      flex: 1; overflow-y: auto; padding: 28px 28px 16px;
-      display: flex; flex-direction: column; gap: 20px;
-    }
-    .welcome {
-      color: var(--text3); text-align: center; padding: 56px 24px;
-      line-height: 1.8; font-size: 13px; max-width: 420px; margin: 0 auto;
-    }
-    .welcome strong { color: var(--text2); font-weight: 500; }
-
-    /* Message rows */
-    .msg-row { display: flex; align-items: flex-start; gap: 10px; }
-    .msg-row.user     { justify-content: flex-end; }
-    .msg-row.assistant { justify-content: flex-start; }
-
-    /* Assistant avatar */
-    .avatar {
-      width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0; margin-top: 2px;
-      background: linear-gradient(135deg, #F59E0B, #D97706);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 700; color: #1C1917;
+      flex: 1; overflow-y: auto; padding: 32px 32px 16px;
+      display: flex; flex-direction: column; gap: 22px;
     }
 
-    /* Bubbles */
-    .bubble {
-      max-width: 580px; padding: 12px 16px; line-height: 1.65;
-      border-radius: 16px; font-size: 14px;
+    /* ── Welcome ────────────────────────────────────────────── */
+    .welcome { text-align: center; padding: 56px 24px; max-width: 540px; margin: 0 auto; }
+    .welcome-icons { display: flex; justify-content: center; gap: 14px; margin-bottom: 18px; }
+    .welcome-icons img { display: block; }
+    .welcome-headline {
+      font-family: 'Caveat', cursive; font-weight: 700;
+      font-size: 32px; color: var(--text); line-height: 1.15; margin-bottom: 10px;
     }
+    .welcome-sub { font-size: 15px; color: var(--text2); line-height: 1.6; }
+
+    /* ── Message rows ───────────────────────────────────────── */
+    .msg-wrap { animation: fadeIn 0.4s ease-out; }
+    .msg-row { display: flex; align-items: flex-start; gap: 12px; }
+    .msg-row.user { justify-content: flex-end; }
+
+    .bubble { max-width: 580px; line-height: 1.65; font-size: 14.5px; }
     .bubble.user {
-      background: var(--user-bg); border: 1px solid var(--user-bdr);
-      border-top-right-radius: 4px; color: var(--text);
+      padding: 12px 18px;
+      background: var(--user-bg); border: 1.5px solid var(--user-bdr);
+      border-radius: 20px 20px 6px 20px; color: var(--text);
+      box-shadow: 0 2px 0 var(--user-bdr);
     }
     .bubble.assistant {
-      background: var(--bg2); border: 1px solid var(--border);
-      border-top-left-radius: 4px;
+      padding: 13px 18px;
+      background: var(--bg2); border: 1.5px solid var(--border);
+      border-radius: 6px 20px 20px 20px; color: var(--text);
+      box-shadow: 0 2px 0 var(--border);
     }
 
-    /* Markdown in answer */
-    .answer-text p         { margin: 5px 0; }
-    .answer-text p:first-child { margin-top: 0; }
-    .answer-text p:last-child  { margin-bottom: 0; }
-    .answer-text strong    { font-weight: 600; color: var(--text); }
-    .answer-text em        { font-style: italic; color: var(--text2); }
-    .answer-text ul, .answer-text ol { padding-left: 20px; margin: 5px 0; }
-    .answer-text li        { margin: 3px 0; }
+    .answer-text p              { margin: 5px 0; }
+    .answer-text p:first-child  { margin-top: 0; }
+    .answer-text p:last-child   { margin-bottom: 0; }
+    .answer-text strong         { font-weight: 700; }
+    .answer-text em             { font-style: italic; }
 
-    /* Blinking cursor */
-    .cursor { display: inline-block; width: 2px; height: 14px; background: var(--accent); vertical-align: middle; margin-left: 2px; animation: blink 0.9s step-end infinite; }
-    @keyframes blink { 50% { opacity: 0; } }
-
-    /* TTFT badge under the bubble */
-    .ttft-badge {
-      font-size: 11px; color: var(--text3); margin-top: 4px; padding-left: 36px;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .ttft-badge .chip {
-      background: var(--accent-dim); border: 1px solid var(--accent-bdr);
-      color: var(--accent); font-size: 10px; padding: 1px 7px; border-radius: 99px;
-      font-weight: 600; letter-spacing: 0.02em;
+    .cursor {
+      display: inline-block; width: 2px; height: 14px;
+      background: var(--accent); vertical-align: middle; margin-left: 2px;
+      animation: blink 0.9s step-end infinite;
     }
 
-    /* Countdown shown below the blinking cursor */
+    .avatar {
+      width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0; margin-top: 1px;
+      background: var(--accent-dim); border: 1.5px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .avatar.streaming { animation: bob 1.4s ease-in-out infinite; }
+
     .countdown {
-      font-size: 12px; color: var(--text3); margin-top: 6px;
+      font-size: 14px; color: var(--text3); margin-top: 6px;
+      padding-left: 44px; font-style: italic;
       font-variant-numeric: tabular-nums;
+      display: none;
     }
+    .countdown.visible { display: block; }
 
-    /* Business cards */
-    .cards { display: flex; flex-direction: column; gap: 8px; max-width: 580px; padding-left: 36px; }
-    .card {
-      background: var(--bg3); border: 1px solid var(--border);
-      border-radius: 12px; padding: 12px 14px;
-      transition: border-color 0.15s;
+    /* ── Business cards ─────────────────────────────────────── */
+    .cards {
+      display: flex; flex-direction: column; gap: 10px;
+      max-width: 580px; padding-left: 44px; margin-top: 12px;
     }
-    .card:hover { border-color: var(--border2); }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
-    .card-name   { font-weight: 600; font-size: 13px; }
-    .card-price  { font-size: 11px; color: var(--text3); letter-spacing: 0.05em; }
-    .card-stars  { font-size: 11px; color: #FBBF24; margin-bottom: 6px; }
-    .card-quote  { font-size: 12px; color: var(--text3); font-style: italic; line-height: 1.55; }
+    .card {
+      background: var(--bg3); border: 1.5px solid var(--border);
+      border-radius: 16px; padding: 14px 16px;
+      display: flex; gap: 12px;
+      box-shadow: 0 3px 0 var(--border);
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .card:hover {
+      border-color: var(--border2);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 var(--border);
+    }
+    .card-icon {
+      width: 44px; height: 44px; flex-shrink: 0;
+      background: var(--user-bg); border-radius: 12px;
+      border: 1px solid var(--user-bdr);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card-body { flex: 1; min-width: 0; }
+    .card-header-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 8px; margin-bottom: 3px;
+    }
+    .card-name {
+      font-family: 'Fraunces', Georgia, serif;
+      font-weight: 600; font-size: 16px; color: var(--text);
+      letter-spacing: -0.01em;
+      font-variation-settings: 'opsz' 144, 'SOFT' 50;
+    }
+    .card-price  { font-size: 11px; color: var(--text3); letter-spacing: 0.05em; flex-shrink: 0; }
+    .card-stars  { font-size: 12px; color: var(--accent); font-weight: 600; margin-bottom: 6px; letter-spacing: 0.03em; }
+    .card-quote  { font-size: 12.5px; color: var(--text2); font-style: italic; line-height: 1.55; }
 
     /* ── Input bar ──────────────────────────────────────────── */
     .input-bar {
-      border-top: 1px solid var(--border); padding: 16px 24px;
-      background: rgba(41,37,36,0.5); flex-shrink: 0;
-      backdrop-filter: blur(8px);
+      border-top: 1.5px solid var(--border); padding: 16px 28px;
+      background: rgba(255,253,247,0.85); flex-shrink: 0;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     }
-    .input-row { display: flex; gap: 10px; align-items: flex-end; max-width: 720px; }
-    .input-wrap { flex: 1; position: relative; }
+    .input-row { display: flex; gap: 12px; align-items: flex-end; }
+    .input-wrap { flex: 1; }
     textarea {
-      width: 100%; background: var(--bg2); border: 1px solid var(--border);
-      border-radius: 12px; padding: 11px 16px; color: var(--text);
+      width: 100%; background: var(--bg2); border: 1.5px solid var(--border);
+      border-radius: 14px; padding: 12px 16px; color: var(--text);
       font-family: inherit; font-size: 14px; resize: none; outline: none;
       line-height: 1.5; transition: border-color 0.15s, box-shadow 0.15s;
     }
     textarea::placeholder { color: var(--text3); }
     textarea:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px var(--accent-glow), 0 0 12px var(--accent-glow);
+      box-shadow: 0 0 0 3px var(--accent-glow);
     }
     .char-row { display: flex; justify-content: flex-end; margin-top: 4px; }
     .char-count { font-size: 11px; color: var(--text3); font-variant-numeric: tabular-nums; }
     .char-count.warn { color: var(--red); }
 
     #send-btn {
-      padding: 11px 22px; background: var(--accent); color: #1C1917;
-      border: none; border-radius: 12px; font-size: 14px; font-weight: 600;
-      cursor: pointer; flex-shrink: 0; margin-bottom: 22px;
-      transition: background 0.15s, box-shadow 0.15s;
-      box-shadow: 0 0 0 0 rgba(245,158,11,0);
+      padding: 12px 22px; background: var(--accent);
+      border: 2px solid var(--accent-deep); border-radius: 14px;
+      font-size: 14.5px; font-weight: 700; font-family: inherit;
+      color: #FFFFFF; cursor: pointer; flex-shrink: 0;
+      margin-bottom: 22px; letter-spacing: 0.03em;
+      box-shadow: 0 3px 0 var(--accent-deep);
+      transition: background 0.15s, transform 0.1s, box-shadow 0.1s;
     }
-    #send-btn:hover:not(:disabled) {
-      background: #FBBF24;
-      box-shadow: 0 0 16px rgba(245,158,11,0.3);
+    #send-btn:hover:not(:disabled) { background: #F47B5C; }
+    #send-btn:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 var(--accent-deep);
     }
-    #send-btn:disabled { background: #44403C; color: var(--text3); cursor: not-allowed; box-shadow: none; }
+    #send-btn:disabled {
+      background: var(--border); border-color: var(--border);
+      color: var(--text3); cursor: not-allowed; box-shadow: none;
+    }
 
-    /* ── System Console ─────────────────────────────────────── */
+    /* ── Console panel ──────────────────────────────────────── */
     .console-panel {
-      width: 268px; flex-shrink: 0; border-left: 1px solid var(--border);
+      width: 288px; flex-shrink: 0; border-left: 1.5px solid var(--border);
       display: flex; flex-direction: column;
-      background: rgba(28,25,23,0.6);
+      background: var(--console-bg);
+      background-image: radial-gradient(rgba(122,82,54,0.10) 1px, transparent 1px);
+      background-size: 12px 12px;
     }
     .console-title {
-      padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .console-title-text {
-      font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
-      font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.12em;
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
     }
     .console-dot {
-      width: 6px; height: 6px; border-radius: 50%; background: var(--text3); flex-shrink: 0;
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+      background: var(--text3);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .console-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .console-title-text {
+      font-family: 'Caveat', cursive; font-weight: 700;
+      font-size: 16px; color: var(--text2); letter-spacing: 0.01em;
     }
     #console {
-      flex: 1; overflow-y: auto; padding: 14px 14px;
-      display: flex; flex-direction: column; gap: 5px;
-      font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
-      font-size: 12px; line-height: 1.55;
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 8px;
+      font-size: 13.5px; line-height: 1.5;
     }
-    .log { display: flex; gap: 7px; align-items: flex-start; }
-    .log .icon { flex-shrink: 0; width: 14px; text-align: center; }
-    .log .msg  { flex: 1; word-break: break-word; }
-    .log .ts   { flex-shrink: 0; color: var(--text3); font-size: 10px; padding-top: 1px; }
-    .log.dim   { color: var(--text3); }
-    .log.info  { color: var(--text2); }
-    .log.ok    { color: var(--green); }
-    .log.err   { color: var(--red); }
-    .log.blue  { color: var(--blue); }
-    .log.amber { color: var(--accent); }
-
-    /* Scrollbars */
-    #messages::-webkit-scrollbar,
-    #console::-webkit-scrollbar { width: 3px; }
-    #messages::-webkit-scrollbar-track,
-    #console::-webkit-scrollbar-track { background: transparent; }
-    #messages::-webkit-scrollbar-thumb,
-    #console::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .log { display: flex; gap: 10px; align-items: flex-start; animation: fadeIn 0.3s ease-out; }
+    .log .bullet { flex-shrink: 0; width: 14px; text-align: center; color: var(--accent); font-size: 14px; padding-top: 1px; }
+    .log .msg    { flex: 1; word-break: break-word; }
+    .log .ts     { flex-shrink: 0; color: var(--text3); font-size: 11px; padding-top: 2px; opacity: 0.7; font-variant-numeric: tabular-nums; }
+    .log.dim     { color: var(--text3); }
+    .log.info    { color: var(--text2); }
+    .log.ok      { color: var(--green); }
+    .log.err     { color: var(--red); }
+    .log.blue    { color: var(--blue); }
   </style>
 </head>
 <body>
 
   <header>
-    <div class="logo">N</div>
+    <div class="scatter">
+      <img src="https://cdn.jsdelivr.net/npm/openmoji@15.1.0/color/svg/1F378.svg" width="22" height="22" alt=""
+           style="left:82%;top:20%;animation:bob 3s ease-in-out infinite;animation-delay:0s">
+      <img src="https://cdn.jsdelivr.net/npm/openmoji@15.1.0/color/svg/1F3B7.svg" width="18" height="18" alt=""
+           style="left:90%;top:65%;animation:bob 3s ease-in-out infinite;animation-delay:0.4s">
+      <img src="https://cdn.jsdelivr.net/npm/openmoji@15.1.0/color/svg/1F35E.svg" width="16" height="16" alt=""
+           style="left:73%;top:70%;animation:bob 3s ease-in-out infinite;animation-delay:0.8s">
+    </div>
+    <div class="logo-disc">
+      <img src="https://cdn.jsdelivr.net/npm/openmoji@15.1.0/color/svg/1F990.svg" width="28" height="28" alt="">
+    </div>
     <div class="header-text">
       <span class="app-name">NOLA AI</span>
-      <span class="app-sub">New Orleans Restaurant Assistant</span>
+      <span class="app-sub">your hungry friend in New Orleans</span>
     </div>
   </header>
 
   <div class="body">
 
-    <!-- Chat -->
     <div class="chat">
       <div id="messages">
         <div class="welcome">
-          Ask about New Orleans restaurants —<br>
-          <strong>jazz brunches</strong>, late-night Cajun, bachelorette spots, outdoor patios...
+          <div class="welcome-icons" id="welcome-icons"></div>
+          <div class="welcome-headline">Hungry in New Orleans?</div>
+          <div class="welcome-sub">
+            Ask me about jazz brunches, late-night Cajun, beignets that beat the line,
+            bachelorette spots, dollar oysters — whatever you're craving.
+          </div>
         </div>
       </div>
+
       <div class="input-bar">
         <div class="input-row">
           <div class="input-wrap">
@@ -248,42 +314,71 @@
       </div>
     </div>
 
-    <!-- Console -->
     <div class="console-panel">
       <div class="console-title">
-        <div class="console-dot"></div>
-        <span class="console-title-text">System Console</span>
+        <div class="console-dot" id="console-dot"></div>
+        <span class="console-title-text">what I'm doing</span>
       </div>
       <div id="console">
-        <div class="log dim"><span class="icon">·</span><span class="msg">Waiting for query</span></div>
+        <div class="log dim">
+          <span class="bullet">·</span><span class="msg">ask me anything...</span>
+        </div>
       </div>
     </div>
 
   </div>
 
   <script>
-    const messagesEl = document.getElementById('messages');
-    const consoleEl  = document.getElementById('console');
-    const inputEl    = document.getElementById('input');
-    const sendBtn    = document.getElementById('send-btn');
-    const charNEl    = document.getElementById('char-n');
+    const OPENMOJI = "https://cdn.jsdelivr.net/npm/openmoji@15.1.0/color/svg";
+    const emojiUrl = hex => `${OPENMOJI}/${hex}.svg`;
 
-    // Timing
-    let t0 = 0;           // request start (ms)
-    let tCandidates = 0;  // when candidates event fired
-    let tFirstToken = 0;  // when first token arrived
-    let tokenCount = 0;
+    // ── Welcome emoji row ────────────────────────────────────────────────
+    const WELCOME_EMOJIS = [
+      ["1F990", 0,    -8],
+      ["1F369", 0.18, -4],
+      ["1F378", 0.36,  0],
+      ["1F3B7", 0.54,  4],
+      ["1F35B", 0.72,  8],
+    ];
+    const welcomeIconsEl = document.getElementById('welcome-icons');
+    WELCOME_EMOJIS.forEach(([hex, delay, rot]) => {
+      const img = document.createElement('img');
+      img.src = emojiUrl(hex);
+      img.width = 38; img.height = 38; img.alt = '';
+      img.style.cssText = `animation:bob 3s ease-in-out infinite;animation-delay:${delay}s;transform:rotate(${rot}deg)`;
+      welcomeIconsEl.appendChild(img);
+    });
 
-    // DOM refs for live-updated elements
-    let bubbleInner    = null;  // div.answer-text inside assistant bubble
-    let countdownEl    = null;  // "First word in ~Xs" element
-    let ttftBadgeEl    = null;  // badge row below the bubble
+    // ── Console bullet helpers (deterministic from text seed) ───────────
+    const HAND_BULLETS = ['✷', '✿', '❀', '❂', '✳', '✱'];
+    function seedHash(s) {
+      let h = 0;
+      s = String(s || 'x');
+      for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      return h;
+    }
+    function pickBullet(text)  { return HAND_BULLETS[Math.abs(seedHash(text + 'b')) % HAND_BULLETS.length]; }
+    function rowIndent(text)   { return ((((seedHash(text + 'i') % 1000) + 1000) % 1000) / 1000) * 2; }
+
+    // ── DOM refs ─────────────────────────────────────────────────────────
+    const messagesEl  = document.getElementById('messages');
+    const consoleEl   = document.getElementById('console');
+    const consoleDot  = document.getElementById('console-dot');
+    const inputEl     = document.getElementById('input');
+    const sendBtn     = document.getElementById('send-btn');
+    const charNEl     = document.getElementById('char-n');
+
+    let t0             = 0;
+    let busy           = false;
+    let bubbleInner    = null;
+    let avatarEl       = null;
+    let countdownEl    = null;
     let countdownTimer = null;
+    let tokens         = '';
+    let firstToken     = true;
+    let currentWrap    = null;
 
-    let tokens = '';
-    let firstToken = true;
-
-    // ── Input ──────────────────────────────────────────────────────────
+    // ── Input ────────────────────────────────────────────────────────────
     inputEl.addEventListener('input', updateState);
     inputEl.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) send(); }
@@ -293,196 +388,206 @@
     function updateState() {
       const n = inputEl.value.length;
       charNEl.textContent = n;
-      const charEl = charNEl.parentElement;
-      charEl.classList.toggle('warn', n > 1800);
-      sendBtn.disabled = inputEl.value.trim() === '' || n > 2000;
+      charNEl.parentElement.classList.toggle('warn', n > 1800);
+      sendBtn.disabled = busy || inputEl.value.trim() === '' || n > 2000;
     }
 
-    // ── Simple markdown ────────────────────────────────────────────────
-    // Escapes HTML, then applies **bold**, *em*, newlines. Safe: content is
-    // escaped before any pattern is applied, so injected tags are inert.
+    // ── Markdown (escapes first, then applies patterns — safe against injection) ──
     function renderMd(raw) {
-      const e = raw
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const h = e
+      const e = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return '<p>' + e
         .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
         .replace(/\*([^*\n]+?)\*/g,'<em>$1</em>')
         .replace(/\n\n+/g,'</p><p>')
-        .replace(/\n/g,'<br>');
-      return '<p>' + h + '</p>';
+        .replace(/\n/g,'<br>') + '</p>';
     }
 
-    // ── Elapsed helper ─────────────────────────────────────────────────
-    function elapsed() {
-      return ((Date.now() - t0) / 1000).toFixed(1) + 's';
+    function elapsed() { return ((Date.now() - t0) / 1000).toFixed(1) + 's'; }
+
+    // ── Messages ─────────────────────────────────────────────────────────
+    function hideWelcome() {
+      const w = messagesEl.querySelector('.welcome');
+      if (w) w.remove();
     }
 
-    // ── Messages ───────────────────────────────────────────────────────
     function addUser(text) {
-      const row = el('div', 'msg-row user');
-      const b   = el('div', 'bubble user');
+      hideWelcome();
+      const wrap = mkEl('div', 'msg-wrap');
+      const row  = mkEl('div', 'msg-row user');
+      const b    = mkEl('div', 'bubble user');
       b.textContent = text;
-      row.appendChild(b); messagesEl.appendChild(row); scroll();
+      row.appendChild(b); wrap.appendChild(row);
+      messagesEl.appendChild(wrap); scroll();
     }
 
     function startAssistant() {
-      tokens = ''; firstToken = true; tokenCount = 0;
+      tokens = ''; firstToken = true;
 
-      const row    = el('div', 'msg-row assistant');
-      const avatar = el('div', 'avatar'); avatar.textContent = 'N';
-      const b      = el('div', 'bubble assistant');
-      const inner  = el('div', 'answer-text');
-      const cursor = el('span', 'cursor');
+      const wrap   = mkEl('div', 'msg-wrap');
+      const row    = mkEl('div', 'msg-row assistant');
+
+      const avatar = mkEl('div', 'avatar streaming');
+      const sImg   = document.createElement('img');
+      sImg.src = emojiUrl('1F990'); sImg.width = 20; sImg.height = 20; sImg.alt = '';
+      avatar.appendChild(sImg);
+      avatarEl = avatar;
+
+      const bubble = mkEl('div', 'bubble assistant');
+      const inner  = mkEl('div', 'answer-text');
+      const cursor = mkEl('span', 'cursor');
       inner.appendChild(cursor);
-      b.appendChild(inner); row.appendChild(avatar); row.appendChild(b);
-      messagesEl.appendChild(row);
+      bubble.appendChild(inner);
       bubbleInner = inner;
 
-      // Countdown below the bubble row
-      const badge = el('div', 'ttft-badge');
-      const cd    = el('span', 'countdown'); cd.textContent = '';
-      badge.appendChild(cd);
-      messagesEl.appendChild(badge);
-      countdownEl  = cd;
-      ttftBadgeEl  = badge;
+      row.appendChild(avatar); row.appendChild(bubble);
+      wrap.appendChild(row);
 
-      scroll();
+      const cd = mkEl('div', 'countdown');
+      wrap.appendChild(cd);
+      countdownEl = cd;
+      currentWrap = wrap;
+
+      messagesEl.appendChild(wrap); scroll();
     }
 
     function startCountdown() {
-      tCandidates = Date.now();
-      const ESTIMATE_MS = 2500; // warm synthesis ~2.5s based on experiments
-
+      const tStart     = Date.now();
+      const ESTIMATE   = 2500;
+      countdownEl.classList.add('visible');
       clearInterval(countdownTimer);
       countdownTimer = setInterval(() => {
-        const rem = ESTIMATE_MS - (Date.now() - tCandidates);
-        if (rem <= 0) {
-          if (countdownEl) countdownEl.textContent = 'First word any moment…';
-          return;
-        }
-        if (countdownEl) countdownEl.textContent = 'First word in ~' + (rem / 1000).toFixed(1) + 's';
+        if (!countdownEl) return;
+        const rem = ESTIMATE - (Date.now() - tStart);
+        countdownEl.textContent = rem <= 0
+          ? 'answer coming any moment...'
+          : 'expect an answer in ~' + (rem / 1000).toFixed(1) + 's';
       }, 80);
     }
 
     function appendToken(t) {
       if (firstToken) {
-        tFirstToken = Date.now();
-        firstToken  = false;
+        firstToken = false;
         clearInterval(countdownTimer);
-        if (countdownEl) countdownEl.textContent = '';
-
-        // Show TTFT badge
-        const ttft = ((tFirstToken - t0) / 1000).toFixed(2);
-        const chip = el('span', 'chip'); chip.textContent = 'TTFT ' + ttft + 's';
-        const label = document.createTextNode('time to first token');
-        ttftBadgeEl.innerHTML = '';
-        ttftBadgeEl.appendChild(chip);
-        ttftBadgeEl.appendChild(label);
+        if (countdownEl) { countdownEl.classList.remove('visible'); countdownEl.textContent = ''; }
       }
-
       tokens += t;
-      tokenCount++;
-      if (bubbleInner) {
-        bubbleInner.innerHTML = renderMd(tokens);
-        scroll();
-      }
+      if (bubbleInner) { bubbleInner.innerHTML = renderMd(tokens); scroll(); }
     }
 
-    function finishAssistant(totalMs) {
+    function finishAssistant() {
       clearInterval(countdownTimer);
-      if (countdownEl) countdownEl.textContent = '';
-      // Append duration chip to ttft badge
-      if (ttftBadgeEl) {
-        const chip2 = el('span', 'chip');
-        chip2.style.background = 'rgba(52,211,153,0.12)';
-        chip2.style.borderColor = 'rgba(52,211,153,0.3)';
-        chip2.style.color = 'var(--green)';
-        chip2.textContent = 'total ' + (totalMs / 1000).toFixed(1) + 's';
-        const sep = document.createTextNode(' · ');
-        ttftBadgeEl.appendChild(sep);
-        ttftBadgeEl.appendChild(chip2);
-      }
+      if (countdownEl)  { countdownEl.classList.remove('visible'); }
+      if (avatarEl)     { avatarEl.classList.remove('streaming'); }
+      if (bubbleInner)  { bubbleInner.innerHTML = renderMd(tokens); }
     }
 
     function renderCards(businesses) {
       if (!businesses || !businesses.length) return;
-      const cards = el('div', 'cards');
+      const cards = mkEl('div', 'cards');
       for (const b of businesses) {
         const price   = b.price_range ? '$'.repeat(b.price_range) : '—';
-        const snippet = b.evidence && b.evidence[0]
-          ? b.evidence[0].slice(0, 130) + (b.evidence[0].length > 130 ? '…' : '')
+        const snippet = b.evidence?.[0]
+          ? b.evidence[0].slice(0, 140) + (b.evidence[0].length > 140 ? '...' : '')
           : '';
-        const card = el('div', 'card');
-        card.innerHTML =
-          '<div class="card-header">' +
-            '<span class="card-name">'  + esc(b.name) + '</span>' +
-            '<span class="card-price">' + esc(price) + '</span>' +
-          '</div>' +
-          '<div class="card-stars">' + esc(b.stars.toFixed(1)) + ' ★</div>' +
-          (snippet ? '<div class="card-quote">"' + esc(snippet) + '"</div>' : '');
+
+        const card      = mkEl('div', 'card');
+        const iconDiv   = mkEl('div', 'card-icon');
+        const iconImg   = document.createElement('img');
+        iconImg.src = emojiUrl('1F990'); iconImg.width = 26; iconImg.height = 26; iconImg.alt = '';
+        iconDiv.appendChild(iconImg);
+
+        const body       = mkEl('div', 'card-body');
+        const headerRow  = mkEl('div', 'card-header-row');
+        const nameEl     = mkEl('span', 'card-name');  nameEl.textContent = b.name;
+        const priceEl    = mkEl('span', 'card-price'); priceEl.textContent = price;
+        headerRow.appendChild(nameEl); headerRow.appendChild(priceEl);
+
+        const starsEl = mkEl('div', 'card-stars');
+        starsEl.textContent = b.stars.toFixed(1) + ' \u2605';
+        body.appendChild(headerRow); body.appendChild(starsEl);
+
+        if (snippet) {
+          const quoteEl = mkEl('div', 'card-quote');
+          quoteEl.textContent = '\u201c' + snippet + '\u201d';
+          body.appendChild(quoteEl);
+        }
+
+        card.appendChild(iconDiv); card.appendChild(body);
         cards.appendChild(card);
       }
-      messagesEl.appendChild(cards); scroll();
+      // attach inside the current assistant wrap so it stays with the message
+      if (currentWrap) currentWrap.appendChild(cards);
+      else messagesEl.appendChild(cards);
+      scroll();
     }
 
     function scroll() { messagesEl.scrollTop = messagesEl.scrollHeight; }
 
-    // ── Console ────────────────────────────────────────────────────────
-    function clearConsole() { consoleEl.innerHTML = ''; }
+    // ── Console ──────────────────────────────────────────────────────────
+    function clearConsole() {
+      consoleEl.innerHTML = '';
+      consoleDot.classList.remove('active');
+    }
 
-    function log(icon, text, cls, withTs) {
-      const row  = el('div', 'log ' + (cls || 'info'));
-      const ico  = el('span', 'icon'); ico.textContent = icon;
-      const msg  = el('span', 'msg');  msg.textContent = text;
-      row.appendChild(ico); row.appendChild(msg);
+    function log(text, cls, withTs) {
+      consoleDot.classList.add('active');
+      const row = mkEl('div', 'log ' + (cls || 'info'));
+      row.style.transform = `translateX(${rowIndent(text).toFixed(1)}px)`;
+
+      const bullet = mkEl('span', 'bullet'); bullet.textContent = pickBullet(text);
+      const msg    = mkEl('span', 'msg');    msg.textContent = text;
+      row.appendChild(bullet); row.appendChild(msg);
+
       if (withTs) {
-        const ts = el('span', 'ts'); ts.textContent = elapsed();
+        const ts = mkEl('span', 'ts'); ts.textContent = elapsed();
         row.appendChild(ts);
       }
       consoleEl.appendChild(row);
       consoleEl.scrollTop = consoleEl.scrollHeight;
     }
 
-    // ── SSE events ─────────────────────────────────────────────────────
+    // ── SSE event handler ─────────────────────────────────────────────────
     function handleEvent(name, data) {
       if (name === 'planning') {
         const n = Object.keys(data.sql_filters || {}).length;
-        log('→', 'Intent: ' + data.intent, 'blue', true);
-        if (n) log('⊞', n + ' SQL filter' + (n > 1 ? 's' : ''), 'info', false);
-        if (data.semantic_query) log('↳', data.semantic_query, 'dim', false);
+        log('Intent: ' + data.intent, 'blue', true);
+        if (n) log(n + ' SQL filter' + (n !== 1 ? 's' : ''), 'info', false);
+        if (data.semantic_query) log(data.semantic_query, 'dim', false);
 
       } else if (name === 'candidates') {
-        log('✓', 'Found ' + data.count + ' business' + (data.count !== 1 ? 'es' : ''), 'ok', true);
-        for (const n of (data.businesses || []).slice(0, 5)) log('·', n, 'dim', false);
-        log('⟳', 'Generating…', 'info', false);
+        log('Found ' + data.count + ' business' + (data.count !== 1 ? 'es' : ''), 'ok', true);
+        for (const n of (data.businesses || []).slice(0, 5)) log(n, 'dim', false);
+        log('Generating...', 'info', false);
         startCountdown();
 
       } else if (name === 'token') {
         appendToken(data.text);
 
       } else if (name === 'done') {
-        const total = Date.now() - t0;
-        const tps   = tokenCount > 0 ? (tokenCount / ((total - (tFirstToken - t0)) / 1000)).toFixed(0) : '—';
-        log('✓', 'Done · ' + tokenCount + ' tokens · ' + tps + ' tok/s', 'ok', true);
+        log('Done', 'ok', true);
         renderCards(data.businesses);
-        finishAssistant(total);
+        finishAssistant();
 
       } else if (name === 'error') {
-        log('✗', data.message, 'err', true);
         clearInterval(countdownTimer);
-        if (bubbleInner) bubbleInner.innerHTML = '<span style="color:var(--red)">' + esc(data.message) + '</span>';
-        if (countdownEl) countdownEl.textContent = '';
+        if (countdownEl)  { countdownEl.classList.remove('visible'); }
+        if (avatarEl)     { avatarEl.classList.remove('streaming'); }
+        log(data.message || 'Unknown error', 'err', true);
+        if (bubbleInner)  {
+          bubbleInner.innerHTML = '<span style="color:var(--red)">' + esc(data.message || 'Error') + '</span>';
+        }
       }
     }
 
-    // ── Send ───────────────────────────────────────────────────────────
+    // ── Send ──────────────────────────────────────────────────────────────
     async function send() {
       const q = inputEl.value.trim();
-      if (!q) return;
-      t0 = Date.now();
+      if (!q || busy) return;
+      busy = true; t0 = Date.now();
 
       sendBtn.disabled = true;
       inputEl.value = ''; charNEl.textContent = '0';
+      charNEl.parentElement.classList.remove('warn');
       clearConsole(); addUser(q); startAssistant();
 
       try {
@@ -492,7 +597,7 @@
           body: JSON.stringify({ question: q }),
         });
         if (!resp.ok) {
-          log('✗', 'HTTP ' + resp.status, 'err', true);
+          log('HTTP ' + resp.status, 'err', true);
           if (bubbleInner) bubbleInner.innerHTML = '<span style="color:var(--red)">Request failed.</span>';
           return;
         }
@@ -500,7 +605,6 @@
         const reader = resp.body.getReader();
         const dec    = new TextDecoder();
         let buf      = '';
-
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -511,8 +615,8 @@
             if (!block.trim()) continue;
             let evName = 'message', dataStr = null;
             for (const line of block.split('\n')) {
-              if (line.startsWith('event: ')) evName = line.slice(7).trim();
-              else if (line.startsWith('data: '))  dataStr = line.slice(6).trim();
+              if (line.startsWith('event: '))     evName  = line.slice(7).trim();
+              else if (line.startsWith('data: ')) dataStr = line.slice(6).trim();
             }
             if (!dataStr) continue;
             let data; try { data = JSON.parse(dataStr); } catch { continue; }
@@ -520,23 +624,21 @@
           }
         }
       } catch (err) {
-        log('✗', err.message, 'err', true);
-        if (bubbleInner) bubbleInner.innerHTML = '<span style="color:var(--red)">Connection error.</span>';
         clearInterval(countdownTimer);
+        if (avatarEl) avatarEl.classList.remove('streaming');
+        log(err.message, 'err', true);
+        if (bubbleInner) bubbleInner.innerHTML = '<span style="color:var(--red)">Connection error.</span>';
       } finally {
-        sendBtn.disabled = false; updateState(); inputEl.focus();
+        busy = false;
+        sendBtn.disabled = false;
+        updateState();
+        inputEl.focus();
       }
     }
 
-    // ── Utils ──────────────────────────────────────────────────────────
-    function el(tag, cls) {
-      const e = document.createElement(tag);
-      if (cls) e.className = cls;
-      return e;
-    }
-    function esc(s) {
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
+    // ── Utils ─────────────────────────────────────────────────────────────
+    function mkEl(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   </script>
 </body>
 </html>
