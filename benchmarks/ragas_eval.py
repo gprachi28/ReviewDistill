@@ -44,6 +44,7 @@ Run:
 import argparse
 import json
 import math
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -59,6 +60,17 @@ from ragas.metrics import faithfulness
 from api.pipeline_v1 import run
 from benchmarks.query_eval import EVAL_CASES
 from config import settings
+
+# SQLite columns to include in the injected metadata context string.
+# These are the structured attributes the synthesizer has access to via SQL
+# metadata but that never appear in anonymous review text — injecting them
+# gives RAGAS visibility into both data sources the synthesizer uses.
+_META_COLS = [
+    "name", "stars", "price_range", "noise_level", "alcohol", "attire",
+    "good_for_groups", "outdoor_seating", "dogs_allowed", "byob", "corkage",
+    "good_for_dancing", "happy_hour", "has_tv", "takes_reservations",
+    "good_for_kids", "caters", "wheelchair_accessible",
+]
 
 JUDGE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 JUDGE_MODEL = "gemini-2.5-pro"
@@ -111,12 +123,69 @@ def collect_samples() -> list[dict]:
             "question": case.question,
             "answer": response.answer,
             "contexts": contexts,
+            "business_ids": [b.business_id for b in response.businesses],
         }
         samples.append(sample)
         SAMPLES_PATH.write_text(json.dumps(samples, indent=2))
         print(f"  ✓  {len(response.businesses)} businesses · {len(contexts)} snippets  [saved]")
 
     return samples
+
+
+def _build_metadata_contexts(business_ids: list[str]) -> list[str]:
+    """
+    Return one metadata string per business, serialised as a flat key-value
+    sentence. Appended to the RAGAS contexts list so the judge can verify
+    claims sourced from SQL metadata (business names, boolean attributes like
+    dogs_allowed/byob, scalar attributes like attire) that never appear in
+    anonymous review text.
+
+    Only non-null, non-zero, non-empty values are included to keep strings
+    short. Boolean fields stored as 1/0 are rendered as true/false.
+    """
+    if not business_ids:
+        return []
+    placeholders = ",".join("?" * len(business_ids))
+    cols_sql = ", ".join(_META_COLS)
+    conn = sqlite3.connect(settings.sqlite_path)
+    rows = conn.execute(
+        f"SELECT {cols_sql} FROM businesses WHERE business_id IN ({placeholders})",
+        business_ids,
+    ).fetchall()
+    conn.close()
+
+    bool_cols = {
+        "good_for_groups", "outdoor_seating", "dogs_allowed", "byob", "corkage",
+        "good_for_dancing", "happy_hour", "has_tv", "takes_reservations",
+        "good_for_kids", "caters", "wheelchair_accessible",
+    }
+    meta_strings = []
+    for row in rows:
+        parts = []
+        for col, val in zip(_META_COLS, row):
+            if val is None or val == "" or val == 0:
+                continue
+            if col in bool_cols:
+                parts.append(f"{col}: true")
+            else:
+                parts.append(f"{col}: {val}")
+        if parts:
+            meta_strings.append("Business metadata — " + " | ".join(parts))
+    return meta_strings
+
+
+def _inject_metadata_contexts(samples: list[dict]) -> list[dict]:
+    """
+    Return a copy of samples with business metadata appended to each contexts
+    list. Samples without business_ids (collected before this fix) are passed
+    through unchanged — they will still be scored, just without metadata.
+    """
+    enriched = []
+    for s in samples:
+        business_ids = s.get("business_ids", [])
+        meta_contexts = _build_metadata_contexts(business_ids)
+        enriched.append({**s, "contexts": s["contexts"] + meta_contexts})
+    return enriched
 
 
 def make_judge_llm() -> ChatOpenAI:
@@ -143,6 +212,11 @@ def run_judge(samples: list[dict]) -> None:
     else:
         done_questions = set()
         all_records = []
+
+    # Inject business metadata into contexts so RAGAS can verify claims
+    # sourced from SQL metadata (names, dogs_allowed, byob, attire, etc.)
+    # that never appear in anonymous review snippets.
+    samples = _inject_metadata_contexts(samples)
 
     judge_llm = make_judge_llm()
     # One sample at a time — prevents RAGAS from batching all 14 into a
