@@ -8,7 +8,7 @@ A conversational restaurant assistant for New Orleans. Ask natural language ques
 
 ## Demo
 
-<video src="images/Screen Recording 2026-04-26 at 16.32.12.mov" controls width="100%"></video>
+[▶ Watch demo](images/Screen%20Recording%202026-04-26%20at%2016.32.12.mov)
 
 ---
 
