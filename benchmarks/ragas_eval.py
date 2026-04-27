@@ -113,7 +113,15 @@ def collect_samples() -> list[dict]:
             print(f"  ERROR: {exc}")
             continue
 
-        contexts = [snippet for biz in response.businesses for snippet in biz.evidence]
+        # Prefix each snippet with its business name so RAGAS can verify
+        # claims like "Trenasse is great for watching sports" by matching
+        # "[Trenasse] sitting at bar watching football game" — without the
+        # prefix, snippets are anonymous and RAGAS can't attribute them.
+        contexts = [
+            f"[{biz.name}] {snippet}"
+            for biz in response.businesses
+            for snippet in biz.evidence
+        ]
 
         if not contexts:
             print("  SKIP — no evidence returned")
