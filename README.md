@@ -1,4 +1,4 @@
-# 🍽️ Yelp Conversational Assistant
+# 🍽️ NOLA Eats — Conversational Restaurant Assistant
 
 > *"Find a jazz brunch spot for a bachelorette party — festive, not touristy."*
 
