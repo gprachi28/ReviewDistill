@@ -220,6 +220,15 @@ PYTHONPATH=. .venv/bin/locust -f benchmarks/load_test.py \
 
 Stats are reported in four rows: `/api/v1/query [cold]`, `/api/v1/query [warm]` (HTTP round-trip), `server [cold]`, `server [warm]` (server-reported `latency_ms` from response body).
 
+**6. RAGAS faithfulness eval** (requires API + LLM server running; `GEMINI_API_KEY` in `.env`):
+```bash
+# Collect pipeline responses (saves to benchmarks/ragas_samples.json)
+PYTHONPATH=. .venv/bin/python benchmarks/ragas_eval.py
+
+# Run Gemini judge on saved samples (no servers needed)
+PYTHONPATH=. .venv/bin/python benchmarks/ragas_eval.py --judge-only
+```
+
 ---
 
 ## 🗺️ What's Next
