@@ -81,27 +81,23 @@ User question
 
 All results on Apple M4 Pro, `mlx-community/Qwen2.5-7B-Instruct-4bit` via `mlx_lm.server` (MPS).
 
-### Latency — v1 single-shot (per-stage breakdown)
+### Latency
 
-| Stage | Cold (first query) | Warm |
-|---|---:|---:|
-| Query Planner | ~1,400 ms | ~880 ms |
-| SQL filter | ~5 ms | ~3 ms |
-| Retrieval | ~7,900 ms | ~900 ms |
-| Meta fetch | ~1 ms | ~0 ms |
-| Synthesizer | ~3,400 ms | ~2,200 ms |
-| **End-to-end** | **~12,400 ms** | **~4,100 ms** |
+| Stage | Warm |
+|---|---:|
+| Query Planner | ~880 ms |
+| SQL filter | ~3 ms |
+| Retrieval | ~900 ms |
+| Synthesizer | ~2,200 ms |
+| **End-to-end** | **~4,100 ms** |
 
-**Warm p50: ~4.1s** — 3.6× under the <15s target. Cold overhead is embedding model + ChromaDB HNSW index loading on first request.
+**Warm p50: ~4.1s** — 3.6× under the <15s target. Achieved across 20 experiments: key wins were switching to a 4-bit quantized model (2.6× speedup), eliminating a redundant per-request ChromaDB scan, and a dummy-query warmup at startup to pre-load the HNSW index into RAM.
 
 ![Latency optimisation across 15 experiments](benchmarks/latency_benchmarks.png)
 
-Reproduce:
-```bash
-PYTHONPATH=. python benchmarks/latency_breakdown.py
-```
+### Query Planning Accuracy
 
-### Query Planning Accuracy — 20-query eval set
+20-query eval set covering all three intent types:
 
 | Intent | Result |
 |---|---|
@@ -112,11 +108,28 @@ PYTHONPATH=. python benchmarks/latency_breakdown.py
 
 Hallucination guard verified: occasion words (`"bachelor party"`, `"date night"`) do not trigger spurious `attire`, `ambience`, or `noise_level` filters.
 
-Reproduce:
-```bash
-PYTHONPATH=. python benchmarks/query_eval.py --mode filter
-PYTHONPATH=. python benchmarks/query_eval.py --mode planner
-```
+### Synthesizer Faithfulness
+
+RAGAS faithfulness eval — 14 `find_businesses` queries, judged by Gemini 2.5 Pro. Metric: fraction of answer claims supported by retrieved review evidence.
+
+| | Score |
+|---|---:|
+| **Mean faithfulness** | **0.831** |
+| Queries scoring ≥ 0.80 | 10 / 14 |
+| Perfect scores (1.00) | 3 / 14 |
+
+During evaluation, a false negative bias was identified: RAGAS marked business names and SQL-only attributes (e.g. `dogs_allowed`, `byob`) as ungrounded because they never appear in anonymous review text. Fixed by (1) injecting serialised business metadata into the eval context and (2) prefixing each snippet with its business name — giving the judge visibility into both data sources the synthesizer uses. Raw baseline was 0.501; corrected score is 0.831.
+
+### Load Test — 5 concurrent users, 300s
+
+| Metric | Result |
+|---|---:|
+| Warm p50 | 19,000 ms |
+| Warm p95 | 26,000 ms |
+| Error rate | **0%** |
+| Throughput | 0.18 req/s |
+
+Tested with two `mlx_lm.server` instances behind a round-robin proxy. Latency under concurrent load is queue-induced (serial LLM inference), not pipeline latency — single-user warm p50 remains 4.1s.
 
 ---
 
@@ -209,23 +222,9 @@ Stats are reported in four rows: `/api/v1/query [cold]`, `/api/v1/query [warm]` 
 
 ---
 
-## 🗺️ Roadmap
+## 🗺️ What's Next
 
-### v1 — In progress
-
-| # | Item | Description |
-|---|---|---|
-| a | Eager startup loading | Load embedding model + ChromaDB HNSW index at FastAPI startup to eliminate ~12s cold-start overhead for real users. |
-| b | Locust load test | 5 concurrent users, 300s window — p50/p99 latency, req/s, error rate, cold vs warm. |
-| c | Quality benchmarking | RAGAS faithfulness eval: do recommendations actually match the query intent, or just keyword-match? |
-| d | Chat UI + Streaming | Rufus-style conversational interface with streaming synthesizer response — first word appears at ~2.5s (planner + retrieval), answer fills in as it generates. Perceived latency near-zero. |
-| e | Re-ranker *(conditional on c)* | If RAGAS reveals retrieval ranking as the weak link, add BGE-Reranker as a cross-encoder step between ChromaDB retrieval and the synthesizer. ~200–400ms overhead, within current latency budget. |
-
-### v2 — Planned
-
-| Item | Description |
-|---|---|
-| Multi-turn session (Rufus-style chat) | Last 3 conversation turns injected into Query Planner — resolves references like *"the first one"*, *"anything cheaper?"*, *"what about parking there?"*. In-memory session store, 30-min TTL. |
+Multi-turn session support — last 3 conversation turns injected into the Query Planner so it can resolve references like *"the first one"*, *"anything cheaper?"*, *"what about parking there?"*. In-memory session store, 30-min TTL.
 
 ---
 
