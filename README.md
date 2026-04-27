@@ -4,6 +4,8 @@
 
 A conversational restaurant assistant for New Orleans. Ask natural language questions, get named recommendations backed by actual reviewer quotes — powered by a hybrid of deterministic SQL filtering and semantic vector search over 621K real Yelp reviews.
 
+> Inspired by [Amazon Rufus](https://www.aboutamazon.com/news/retail/amazon-rufus) — the conversational shopping assistant that answers natural language product questions using reviews, listings, and structured metadata. NOLA Eats applies the same pattern to restaurant discovery: an LLM Query Planner extracts structured intent, SQL handles enumerable facts, and semantic search over reviewer text handles everything a checkbox can't capture.
+
 ---
 
 ## Demo [UI designed with Claude]
