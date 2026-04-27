@@ -533,3 +533,43 @@ All three intent types pass:
 *Correction:* True synthesizer faithfulness is estimated at ~0.85 when excluding metadata-sourced claims. The 0.501 mean is artificially suppressed by this structural bias, not by actual hallucination.
 
 *Fix planned:* Append a serialised metadata string (business name, SQL filter attributes) to the `contexts` field during evaluation to align RAGAS's view with the pipeline's full available data sources. This gives the judge visibility into both evidence streams — review snippets and structured metadata — that the synthesizer actually has access to.
+
+---
+
+## EXP-019 — RAGAS Faithfulness Eval v2 (metadata injection)
+**Date:** 2026-04-27
+**Tool:** RAGAS 0.1.x — `benchmarks/ragas_eval.py --judge-only`
+**Judge:** gemini-2.5-pro
+**Change from EXP-018:** Business metadata (name, stars, price_range, noise_level, attire, boolean attributes) serialised as flat key-value strings and appended to the `contexts` list per sample — gives RAGAS visibility into SQL-sourced facts the synthesizer had access to.
+
+**Results:**
+
+| Query | EXP-018 | EXP-019 | Delta |
+|---|---:|---:|---:|
+| quiet romantic date spot | 0.33 | 1.00 | +0.67 |
+| jazz brunch with live music | 0.58 | 0.92 | +0.34 |
+| late-night Cajun food after a show on Frenchmen Street | 0.88 | 0.88 | 0.00 |
+| dressy dinner spot with live music | 0.56 | 0.82 | +0.26 |
+| wheelchair accessible restaurant that caters events | 0.80 | 0.79 | -0.01 |
+| family-friendly seafood place with parking | 0.55 | 0.73 | +0.18 |
+| outdoor patio restaurant with a full bar | 0.90 | 0.67 | -0.23 |
+| BYOB place with casual attire | 0.00 | 0.64 | **+0.64** |
+| bachelor party spot, loud, handles large groups | 0.56 | 0.62 | +0.06 |
+| bachelorette dinner, upscale vibes, good for large groups | 0.64 | 0.62 | -0.02 |
+| upscale dinner spot that takes reservations | 0.36 | 0.60 | +0.24 |
+| cheap brunch place with outdoor seating | 0.33 | 0.36 | +0.03 |
+| dog-friendly restaurant with a patio | 0.00 | 0.33 | +0.33 |
+| happy hour bar with TVs to watch sports | 0.50 | 0.00 | **-0.50** |
+
+**Mean faithfulness: 0.642 (14/14 scored) — up from 0.501 in EXP-018**
+
+**Analysis:**
+- Metadata injection resolved the BYOB false negative completely (0.00 → 0.64) — SQL-only attributes now visible to RAGAS judge
+- Dog-friendly improved (0.00 → 0.33) but not fully fixed — metadata gives RAGAS the business name, but anonymous snippets can't be attributed to specific businesses so cross-context claims still fail
+- Happy hour regressed (0.50 → 0.00) — new outlier. Root cause: same attribution gap as dog-friendly. Snippets are anonymous; the synthesizer names "Trenasse" and "Coterie" but RAGAS cannot connect those names to the matching review snippets even with metadata present
+- Quiet romantic date recovered to 1.00 — all claims fully grounded once metadata visible
+
+**Residual Root Cause (dog-friendly, happy hour):**
+Metadata injection adds `"name: Trenasse | has_tv: true"` as a separate context entry. RAGAS can verify *"Trenasse has a TV"* but cannot verify *"Trenasse is great for watching sports"* because the supporting snippet `"sitting at bar watching football game"` is a separate, unnamed entry — RAGAS can't link them.
+
+**Fix implemented (EXP-020):** Prefix every review snippet with its business name at collection time: `"[Trenasse] sitting at bar watching football game"`. This makes business attribution explicit within each context entry, allowing RAGAS to verify name-qualified claims directly from the snippet text.
